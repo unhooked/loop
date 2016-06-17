@@ -11,8 +11,10 @@
     <link rel="stylesheet" type="text/css" href="shared/css/conversation.css">
     <link class="fx-embedded-panel" rel="stylesheet" type="text/css"
           href="/add-on/panels/css/panel.css">
-    <link class="fx-embedded-panel" rel="stylesheet" type="text/css"
+    <link class="fx-embedded-panel desktop" rel="stylesheet" type="text/css"
           href="/add-on/panels/css/desktop.css">
+    <link class="fx-embedded-panel" rel="stylesheet" type="text/css"
+          href="/add-on/panels/css/copy.css">
     <link class="standalone" rel="stylesheet" type="text/css"
           href="/css/webapp.css">
     <link rel="stylesheet" type="text/css" href="ui-showcase.css">
@@ -28,6 +30,7 @@
     <div id="main"></div>
     <div id="results"></div>
     <script src="shared/vendor/react.js"></script>
+    <script src="shared/vendor/react-dom.js"></script>
     <script src="shared/vendor/classnames.js"></script>
     <script src="shared/vendor/lodash.js"></script>
     <script src="shared/vendor/backbone.js"></script>
@@ -37,10 +40,14 @@
     <script src="fake-l10n.js"></script>
     <script src="shared/js/actions.js"></script>
     <script src="shared/js/utils.js"></script>
-    <script src="shared/js/models.js"></script>
+    <script src="/add-on/panels/js/models.js"></script>
     <script src="shared/js/mixins.js"></script>
     <script src="shared/js/validate.js"></script>
     <script src="shared/js/dispatcher.js"></script>
+
+    <!-- Load fake-components after loading utils to avoid chrome detection. -->
+    <script src="/add-on/panels/test/fake-components.js"></script>
+
     <script src="shared/js/store.js"></script>
     <script src="shared/js/activeRoomStore.js"></script>
     <script src="shared/js/views.js"></script>
@@ -56,6 +63,7 @@
     <script src="/js/standaloneRoomViews.js"></script>
     <script src="/add-on/panels/js/panel.js"></script>
     <script src="/add-on/panels/js/conversation.js"></script>
+    <script src="/add-on/panels/js/copy.js"></script>
     <script src="react-frame-component.js"></script>
     <script src="ui-showcase.js"></script>
   </body>

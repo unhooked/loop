@@ -38,7 +38,6 @@ describe("loop.store.ActiveRoomStore", function() {
       "Rooms:PushSubscription": sinon.stub(),
       SetScreenShareState: sinon.stub(),
       GetActiveTabWindowId: sandbox.stub().returns(42),
-      GetSocialShareProviders: sinon.stub().returns([]),
       TelemetryAddValue: sinon.stub()
     });
 
@@ -85,6 +84,14 @@ describe("loop.store.ActiveRoomStore", function() {
       expect(function() {
         new loop.store.ActiveRoomStore(dispatcher, { mozLoop: {} });
       }).to.Throw(/sdkDriver/);
+    });
+  });
+
+  describe("#getInitialStoreState", function() {
+    it("should return an object with roomContextUrls set to null", function() {
+      var initialState = store.getInitialStoreState();
+
+      expect(initialState).to.have.a.property("roomContextUrls", null);
     });
   });
 
@@ -362,8 +369,7 @@ describe("loop.store.ActiveRoomStore", function() {
               participants: [],
               roomName: fakeRoomData.decryptedContext.roomName,
               roomState: ROOM_STATES.READY,
-              roomUrl: fakeRoomData.roomUrl,
-              socialShareProviders: []
+              roomUrl: fakeRoomData.roomUrl
             }));
         });
       });
@@ -798,28 +804,6 @@ describe("loop.store.ActiveRoomStore", function() {
     });
   });
 
-  describe("#updateSocialShareInfo", function() {
-    var fakeSocialShareInfo;
-
-    beforeEach(function() {
-      fakeSocialShareInfo = {
-        socialShareProviders: [{
-          name: "foo",
-          origin: "https://example.com",
-          iconURL: "icon.png"
-        }]
-      };
-    });
-
-    it("should save the Social API information", function() {
-      store.updateSocialShareInfo(new sharedActions.UpdateSocialShareInfo(fakeSocialShareInfo));
-
-      var state = store.getStoreState();
-      expect(state.socialShareProviders)
-        .eql(fakeSocialShareInfo.socialShareProviders);
-    });
-  });
-
   describe("#joinRoom", function() {
     var hasDevicesStub;
 
@@ -1120,28 +1104,6 @@ describe("loop.store.ActiveRoomStore", function() {
         actionData);
     });
 
-    it("should pass 'sendTwoWayMediaTelemetry' as true to connectSession if " +
-       "store._isDesktop is true", function() {
-      store._isDesktop = true;
-
-      store.joinedRoom(new sharedActions.JoinedRoom(fakeJoinedData));
-
-      sinon.assert.calledOnce(fakeSdkDriver.connectSession);
-      sinon.assert.calledWithMatch(fakeSdkDriver.connectSession,
-        sinon.match.has("sendTwoWayMediaTelemetry", true));
-    });
-
-    it("should pass 'sendTwoWayTelemetry' as false to connectionSession if " +
-       "store._isDesktop is false", function() {
-      store._isDesktop = false;
-
-      store.joinedRoom(new sharedActions.JoinedRoom(fakeJoinedData));
-
-      sinon.assert.calledOnce(fakeSdkDriver.connectSession);
-      sinon.assert.calledWithMatch(fakeSdkDriver.connectSession,
-        sinon.match.has("sendTwoWayMediaTelemetry", false));
-    });
-
     it("should call LoopAPI.AddConversationContext", function() {
       var actionData = new sharedActions.JoinedRoom(fakeJoinedData);
 
@@ -1344,6 +1306,7 @@ describe("loop.store.ActiveRoomStore", function() {
       expect(store.getStoreState()).to.not.have.property("localSrcMediaElement");
 
       store.mediaStreamCreated(new sharedActions.MediaStreamCreated({
+        hasAudio: false,
         hasVideo: false,
         isLocal: true,
         srcMediaElement: fakeStreamElement
@@ -1355,17 +1318,20 @@ describe("loop.store.ActiveRoomStore", function() {
 
     it("should set the local video enabled", function() {
       store.setStoreState({
+        localAudioEnabled: false,
         localVideoEnabled: false,
         remoteVideoEnabled: false
       });
 
       store.mediaStreamCreated(new sharedActions.MediaStreamCreated({
+        hasAudio: true,
         hasVideo: true,
         isLocal: true,
         srcMediaElement: fakeStreamElement
       }));
 
       expect(store.getStoreState().localVideoEnabled).eql(true);
+      expect(store.getStoreState().localAudioEnabled).eql(true);
       expect(store.getStoreState().remoteVideoEnabled).eql(false);
     });
 
@@ -1373,6 +1339,7 @@ describe("loop.store.ActiveRoomStore", function() {
       expect(store.getStoreState()).to.not.have.property("remoteSrcMediaElement");
 
       store.mediaStreamCreated(new sharedActions.MediaStreamCreated({
+        hasAudio: false,
         hasVideo: false,
         isLocal: false,
         srcMediaElement: fakeStreamElement
@@ -1389,6 +1356,7 @@ describe("loop.store.ActiveRoomStore", function() {
       });
 
       store.mediaStreamCreated(new sharedActions.MediaStreamCreated({
+        hasAudio: true,
         hasVideo: true,
         isLocal: false,
         srcMediaElement: fakeStreamElement
@@ -1396,6 +1364,7 @@ describe("loop.store.ActiveRoomStore", function() {
 
       expect(store.getStoreState().localVideoEnabled).eql(false);
       expect(store.getStoreState().remoteVideoEnabled).eql(true);
+      expect(store.getStoreState().remoteAudioEnabled).eql(true);
     });
   });
 
@@ -2114,24 +2083,6 @@ describe("loop.store.ActiveRoomStore", function() {
     });
   });
 
-  describe("#_handleSocialShareUpdate", function() {
-    it("should dispatch an UpdateRoomInfo action", function() {
-      store._handleSocialShareUpdate();
-
-      sinon.assert.calledOnce(dispatcher.dispatch);
-      sinon.assert.calledWithExactly(dispatcher.dispatch,
-        new sharedActions.UpdateSocialShareInfo({
-          socialShareProviders: []
-        }));
-    });
-
-    it("should call respective mozLoop methods", function() {
-      store._handleSocialShareUpdate();
-
-      sinon.assert.calledOnce(requestStubs.GetSocialShareProviders);
-    });
-  });
-
   describe("#_handleTextChatMessage", function() {
     beforeEach(function() {
       var fakeRoomData = {
@@ -2190,21 +2141,6 @@ describe("loop.store.ActiveRoomStore", function() {
       }));
 
       assertWeDidNothing();
-    });
-
-    it("should ping telemetry when a chat message arrived or is to be sent", function() {
-      store._handleTextChatMessage(new sharedActions.ReceivedTextChatMessage({
-        contentType: CHAT_CONTENT_TYPES.TEXT,
-        message: "Hello!",
-        receivedTimestamp: "1970-01-01T00:00:00.000Z"
-      }));
-
-      sinon.assert.calledOnce(requestStubs.TelemetryAddValue);
-      sinon.assert.calledWithExactly(requestStubs.TelemetryAddValue,
-        "LOOP_ROOM_SESSION_WITHCHAT", 1);
-      expect(store.getStoreState().chatMessageExchanged).eql(true);
-      expect(dispatcher._eventData.hasOwnProperty("receivedTextChatMessage")).eql(false);
-      expect(dispatcher._eventData.hasOwnProperty("sendTextChatMessage")).eql(false);
     });
   });
 

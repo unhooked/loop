@@ -15,6 +15,7 @@ module.exports = function(config) {
     "shared/test/loop_mocha_utils.js",
     "test/karma/head.js",
     "built/add-on/chrome/content/shared/vendor/react.js",
+    "built/add-on/chrome/content/shared/vendor/react-dom.js",
     "built/add-on/chrome/content/shared/vendor/classnames.js",
     "built/add-on/chrome/content/shared/vendor/backbone.js",
     "built/add-on/chrome/content/panels/vendor/simpleSlideshow.js",
@@ -25,12 +26,13 @@ module.exports = function(config) {
     "built/add-on/chrome/content/panels/vendor/l10n.js",
     "built/add-on/chrome/content/shared/js/loopapi-client.js",
     "built/add-on/chrome/content/shared/js/utils.js",
-    "built/add-on/chrome/content/shared/js/models.js",
+    "built/add-on/chrome/content/panels/js/models.js",
     "built/add-on/chrome/content/shared/js/mixins.js",
     "built/add-on/chrome/content/shared/js/actions.js",
     "built/add-on/chrome/content/shared/js/otSdkDriver.js",
     "built/add-on/chrome/content/shared/js/validate.js",
     "built/add-on/chrome/content/shared/js/dispatcher.js",
+    "built/add-on/chrome/content/panels/test/fake-components.js",
     "built/add-on/chrome/content/shared/js/store.js",
     "built/add-on/chrome/content/shared/js/activeRoomStore.js",
     "built/add-on/chrome/content/shared/js/remoteCursorStore.js",
@@ -43,6 +45,7 @@ module.exports = function(config) {
     "built/add-on/chrome/content/panels/js/roomStore.js",
     "built/add-on/chrome/content/panels/js/roomViews.js",
     "built/add-on/chrome/content/panels/js/conversation.js",
+    "built/add-on/chrome/content/panels/js/copy.js",
     "built/add-on/chrome/content/panels/js/panel.js",
     "built/add-on/chrome/content/panels/js/slideshow.js",
     "add-on/panels/test/*.js",
@@ -52,7 +55,8 @@ module.exports = function(config) {
   // Preprocess matching files before serving them to the browser.
   // Available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor .
   baseConfig.preprocessors = {
-    "built/add-on/chrome/content/panels/js/*.js": ["coverage"]
+    "built/add-on/chrome/content/panels/js/*.js": ["coverage"],
+    "built/add-on/chrome/content/panels/vendor/l10n.js": ["coverage"]
   };
 
   baseConfig.coverageReporter.dir = "built/coverage/desktop";

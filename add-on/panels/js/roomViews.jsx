@@ -358,6 +358,7 @@ loop.roomViews = (function(mozL10n) {
                 screenShareMediaElement={this.state.screenShareMediaElement}
                 screenSharePosterUrl={null}
                 showInitialContext={false}
+                showMediaWait={false}
                 showTile={false}>
                 <sharedViews.ConversationToolbar
                   audio={{ enabled: !this.state.audioMuted, visible: true }}
@@ -371,8 +372,7 @@ loop.roomViews = (function(mozL10n) {
                   facebookEnabled={this.props.facebookEnabled}
                   locationForMetrics="conversation"
                   roomData={roomData}
-                  show={shouldRenderInvitationOverlay}
-                  socialShareProviders={this.state.socialShareProviders} />
+                  show={shouldRenderInvitationOverlay} />
               </sharedViews.MediaLayoutView>
             </div>
           );

@@ -80,7 +80,7 @@ describe("loop.standaloneRoomViews", function() {
     loop.shared.mixins.setRootObject(window);
     sandbox.restore();
     clock.restore();
-    React.unmountComponentAtNode(fixtures);
+    ReactDOM.unmountComponentAtNode(fixtures);
     view = null;
   });
 
@@ -104,7 +104,7 @@ describe("loop.standaloneRoomViews", function() {
       };
 
       view = mountTestComponent();
-      node = view.getDOMNode();
+      node = ReactDOM.findDOMNode(view);
     });
 
     afterEach(function() {
@@ -160,7 +160,7 @@ describe("loop.standaloneRoomViews", function() {
       });
 
       view = mountTestComponent();
-      var button = view.getDOMNode().querySelector(".info-panel > button");
+      var button = ReactDOM.findDOMNode(view).querySelector(".info-panel > button");
 
       expect(button.textContent).eql("rooms_room_join_label");
     });
@@ -172,7 +172,7 @@ describe("loop.standaloneRoomViews", function() {
       });
 
       view = mountTestComponent();
-      var button = view.getDOMNode().querySelector(".info-panel > button");
+      var button = ReactDOM.findDOMNode(view).querySelector(".info-panel > button");
 
       TestUtils.Simulate.click(button);
 
@@ -187,7 +187,7 @@ describe("loop.standaloneRoomViews", function() {
       });
 
       view = mountTestComponent();
-      var button = view.getDOMNode().querySelector(".info-panel > button");
+      var button = ReactDOM.findDOMNode(view).querySelector(".info-panel > button");
 
       expect(button.textContent).eql("rooms_room_joined_own_conversation_label");
     });
@@ -199,7 +199,7 @@ describe("loop.standaloneRoomViews", function() {
       });
 
       view = mountTestComponent();
-      var button = view.getDOMNode().querySelector(".info-panel > button");
+      var button = ReactDOM.findDOMNode(view).querySelector(".info-panel > button");
 
       expect(button.classList.contains("disabled")).eql(true);
     });
@@ -211,7 +211,7 @@ describe("loop.standaloneRoomViews", function() {
       });
 
       view = mountTestComponent();
-      var button = view.getDOMNode().querySelector(".info-panel > button");
+      var button = ReactDOM.findDOMNode(view).querySelector(".info-panel > button");
 
       expect(button).eql(null);
     });
@@ -223,7 +223,7 @@ describe("loop.standaloneRoomViews", function() {
       });
 
       view = mountTestComponent();
-      var text = view.getDOMNode().querySelector(".failure");
+      var text = ReactDOM.findDOMNode(view).querySelector(".failure");
 
       expect(text.textContent).eql("rooms_already_joined");
     });
@@ -236,7 +236,7 @@ describe("loop.standaloneRoomViews", function() {
         });
 
         view = mountTestComponent();
-        var text = view.getDOMNode().querySelector(".roomName");
+        var text = ReactDOM.findDOMNode(view).querySelector(".roomName");
 
         expect(
           text.textContent)
@@ -255,7 +255,7 @@ describe("loop.standaloneRoomViews", function() {
         });
 
         view = mountTestComponent();
-        var text = view.getDOMNode().querySelector(".roomName");
+        var text = ReactDOM.findDOMNode(view).querySelector(".roomName");
 
         expect(
           text.textContent)
@@ -273,7 +273,7 @@ describe("loop.standaloneRoomViews", function() {
         });
 
         view = mountTestComponent();
-        var text = view.getDOMNode().querySelector(".roomName");
+        var text = ReactDOM.findDOMNode(view).querySelector(".roomName");
 
         expect(
           text.textContent)
@@ -302,74 +302,74 @@ describe("loop.standaloneRoomViews", function() {
     it("should display a status error message if not reason is supplied", function() {
       view = mountTestComponent();
 
-      expect(view.getDOMNode().querySelector(".failed-room-message").textContent)
+      expect(ReactDOM.findDOMNode(view).querySelector(".failed-room-message").textContent)
         .eql("status_error");
     });
 
     it("should display a denied message on MEDIA_DENIED", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.MEDIA_DENIED });
 
-      expect(view.getDOMNode().querySelector(".failed-room-message").textContent)
+      expect(ReactDOM.findDOMNode(view).querySelector(".failed-room-message").textContent)
         .eql("rooms_media_denied_message");
     });
 
     it("should display a denied message on NO_MEDIA", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.NO_MEDIA });
 
-      expect(view.getDOMNode().querySelector(".failed-room-message").textContent)
+      expect(ReactDOM.findDOMNode(view).querySelector(".failed-room-message").textContent)
         .eql("rooms_media_denied_message");
     });
 
     it("should display an unavailable message on EXPIRED_OR_INVALID", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.EXPIRED_OR_INVALID });
 
-      expect(view.getDOMNode().querySelector(".failed-room-message").textContent)
+      expect(ReactDOM.findDOMNode(view).querySelector(".failed-room-message").textContent)
         .eql("rooms_unavailable_notification_message");
     });
 
     it("should display an tos failure message on TOS_FAILURE", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.TOS_FAILURE });
 
-      expect(view.getDOMNode().querySelector(".failed-room-message").textContent)
+      expect(ReactDOM.findDOMNode(view).querySelector(".failed-room-message").textContent)
         .eql("tos_failure_message");
     });
 
     it("should display cannot connect to server on COULD_NOT_CONNECT", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.COULD_NOT_CONNECT });
 
-      expect(view.getDOMNode().querySelector(".failed-room-message").textContent)
+      expect(ReactDOM.findDOMNode(view).querySelector(".failed-room-message").textContent)
         .eql("rooms_server_unavailable_message");
     });
 
     it("should display Something went wrong on UNKNOWN error", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.UNKNOWN });
 
-      expect(view.getDOMNode().querySelector(".failed-room-message").textContent)
+      expect(ReactDOM.findDOMNode(view).querySelector(".failed-room-message").textContent)
         .eql("status_error");
     });
 
     it("should not display a retry button when the failure reason is expired or invalid", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.EXPIRED_OR_INVALID });
 
-      expect(view.getDOMNode().querySelector(".btn-info")).eql(null);
+      expect(ReactDOM.findDOMNode(view).querySelector(".btn-info")).eql(null);
     });
 
     it("should not display a retry button when the failure reason is tos failure", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.TOS_FAILURE });
 
-      expect(view.getDOMNode().querySelector(".btn-info")).eql(null);
+      expect(ReactDOM.findDOMNode(view).querySelector(".btn-info")).eql(null);
     });
 
     it("should display a retry button for any other reason", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.NO_MEDIA });
 
-      expect(view.getDOMNode().querySelector(".btn-info")).not.eql(null);
+      expect(ReactDOM.findDOMNode(view).querySelector(".btn-info")).not.eql(null);
     });
 
     it("should dispatch a RetryAfterRoomFailure action when the retry button is pressed", function() {
       view = mountTestComponent({ failureReason: FAILURE_DETAILS.NO_MEDIA });
 
-      var button = view.getDOMNode().querySelector(".btn-info");
+      var button = ReactDOM.findDOMNode(view).querySelector(".btn-info");
 
       TestUtils.Simulate.click(button);
 
@@ -409,7 +409,7 @@ describe("loop.standaloneRoomViews", function() {
     it("should dispatch a RecordClick action when the support link is clicked", function() {
       view = mountTestComponent();
 
-      TestUtils.Simulate.click(view.getDOMNode().querySelector("a"));
+      TestUtils.Simulate.click(ReactDOM.findDOMNode(view).querySelector("a"));
 
       sinon.assert.calledOnce(dispatcher.dispatch);
       sinon.assert.calledWithExactly(dispatcher.dispatch,
@@ -421,14 +421,14 @@ describe("loop.standaloneRoomViews", function() {
     it("should display the hello-logo element", function() {
       view = mountTestComponent();
 
-      expect(view.getDOMNode().querySelector(".hello-logo"))
+      expect(ReactDOM.findDOMNode(view).querySelector(".hello-logo"))
         .instanceOf(HTMLDivElement);
     });
 
     it("should display the support url button", function() {
       view = mountTestComponent();
 
-      expect(view.getDOMNode().querySelector(".general-support-url"))
+      expect(ReactDOM.findDOMNode(view).querySelector(".general-support-url"))
         .instanceOf(HTMLAnchorElement);
     });
 
@@ -439,9 +439,9 @@ describe("loop.standaloneRoomViews", function() {
         }
       });
 
-      expect(view.getDOMNode().querySelector(".btn-mute-audio"))
+      expect(ReactDOM.findDOMNode(view).querySelector(".btn-mute-audio"))
         .instanceOf(HTMLButtonElement);
-      expect(view.getDOMNode().querySelector(".btn-mute-video"))
+      expect(ReactDOM.findDOMNode(view).querySelector(".btn-mute-video"))
         .instanceOf(HTMLButtonElement);
     });
 
@@ -452,7 +452,7 @@ describe("loop.standaloneRoomViews", function() {
         }
       });
 
-      expect(view.getDOMNode().querySelector(".btn-hangup"))
+      expect(ReactDOM.findDOMNode(view).querySelector(".btn-hangup"))
         .instanceOf(HTMLButtonElement);
     });
 
@@ -464,11 +464,11 @@ describe("loop.standaloneRoomViews", function() {
           }
         });
 
-        expect(view.getDOMNode().querySelector(".terms-service"))
+        expect(ReactDOM.findDOMNode(view).querySelector(".terms-service"))
           .instanceOf(HTMLParagraphElement);
       });
 
-      it("should display room context info", function() {
+      it("should display room welcome message", function() {
         view = mountTestComponent({
           room: {
             roomState: ROOM_STATES.JOINED,
@@ -480,10 +480,74 @@ describe("loop.standaloneRoomViews", function() {
           }
         });
 
-        expect(view.getDOMNode().querySelector(".context-info h2").textContent)
+        expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context p").textContent)
+          .eql("rooms_welcome_title");
+      });
+
+      it("should display room context info", function() {
+        view = mountTestComponent({
+          room: {
+            roomState: ROOM_STATES.HAS_PARTICIPANTS,
+            roomName: "FakeRoomName",
+            roomContextUrls: [{
+              location: "http://fakeurl.com",
+              thumbnail: "fakeFavicon.ico"
+            }]
+          }
+        });
+
+        expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context h2").textContent)
           .eql("FakeRoomName");
-        expect(view.getDOMNode().querySelector(".context-info img"))
-          .not.eql(null);
+        expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context img"))
+          .not.eql("FakeRoomName");
+      });
+
+      it("should allow context link if context location is http", function() {
+        view = mountTestComponent({
+          room: {
+            roomState: ROOM_STATES.HAS_PARTICIPANTS,
+            roomName: "FakeRoomName",
+            roomContextUrls: [{
+              location: "http://fakeurl.com/",
+              thumbnail: "fakeFavicon.ico"
+            }]
+          }
+        });
+
+        expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context a").getAttribute("href"))
+          .eql("http://fakeurl.com/");
+      });
+
+      it("should not allow context link if context location is about url", function() {
+        view = mountTestComponent({
+          room: {
+            roomState: ROOM_STATES.HAS_PARTICIPANTS,
+            roomName: "aboutConfig",
+            roomContextUrls: [{
+              location: "about:config",
+              thumbnail: "fakeFavicon.ico"
+            }]
+          }
+        });
+
+        expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context a").getAttribute("href"))
+          .eql(null);
+      });
+
+      it("should not allow context link if the context location protocol is not whitelisted", function() {
+        view = mountTestComponent({
+          room: {
+            roomState: ROOM_STATES.HAS_PARTICIPANTS,
+            roomName: "nonWhitelistUrl",
+            roomContextUrls: [{
+              location: "somethingelse://somethingOtherThanWhitelist.com",
+              thumbnail: "fakeFavicon.ico"
+            }]
+          }
+        });
+
+        expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context a").getAttribute("href"))
+          .eql(null);
       });
     });
   });
@@ -513,7 +577,7 @@ describe("loop.standaloneRoomViews", function() {
 
     describe("#introScreen", function() {
       function getOKButton(elem) {
-        return elem.getDOMNode().querySelector(".button-got-it");
+        return ReactDOM.findDOMNode(elem).querySelector(".button-got-it");
       }
 
       it("should show introduction screen if introSeen is set to false", function() {
@@ -708,13 +772,15 @@ describe("loop.standaloneRoomViews", function() {
         view = mountTestComponent();
         view.setState({
           audioMuted: true,
+          localAudioEnabled: true,
+          localVideoEnabled: true,
           videoMuted: true
         });
       });
 
       it("should mute local audio stream", function() {
         TestUtils.Simulate.click(
-          view.getDOMNode().querySelector(".btn-mute-audio"));
+          ReactDOM.findDOMNode(view).querySelector(".btn-mute-audio"));
 
         sinon.assert.calledOnce(dispatch);
         sinon.assert.calledWithExactly(dispatch, new sharedActions.SetMute({
@@ -725,13 +791,48 @@ describe("loop.standaloneRoomViews", function() {
 
       it("should mute local video stream", function() {
         TestUtils.Simulate.click(
-          view.getDOMNode().querySelector(".btn-mute-video"));
+          ReactDOM.findDOMNode(view).querySelector(".btn-mute-video"));
 
         sinon.assert.calledOnce(dispatch);
         sinon.assert.calledWithExactly(dispatch, new sharedActions.SetMute({
           type: "video",
           enabled: true
         }));
+      });
+
+      it("should mute local video stream", function() {
+        TestUtils.Simulate.click(
+          ReactDOM.findDOMNode(view).querySelector(".btn-mute-video"));
+
+        sinon.assert.calledOnce(dispatch);
+        sinon.assert.calledWithExactly(dispatch, new sharedActions.SetMute({
+          type: "video",
+          enabled: true
+        }));
+      });
+
+      describe("disabled states", function() {
+        beforeEach(function() {
+          view = mountTestComponent();
+          view.setState({
+            localAudioEnabled: false,
+            localVideoEnabled: false
+          });
+        });
+
+        it("should not mute local video stream if camera is not available", function() {
+          TestUtils.Simulate.click(
+            ReactDOM.findDOMNode(view).querySelector(".btn-mute-video"));
+
+          sinon.assert.notCalled(dispatch);
+        });
+
+        it("should not mute local audio stream if mic is not available", function() {
+          TestUtils.Simulate.click(
+            ReactDOM.findDOMNode(view).querySelector(".btn-mute-video"));
+
+          sinon.assert.notCalled(dispatch);
+        });
       });
     });
 
@@ -753,7 +854,7 @@ describe("loop.standaloneRoomViews", function() {
           function() {
             activeRoomStore.setStoreState({ roomState: ROOM_STATES.JOINED });
 
-            expect(view.getDOMNode().querySelector(".room-notification-header h2"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2"))
               .eql(null);
           });
 
@@ -762,17 +863,96 @@ describe("loop.standaloneRoomViews", function() {
             activeRoomStore.setStoreState({ roomState: ROOM_STATES.JOINED });
             clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
 
-            expect(view.getDOMNode().querySelector(".room-notification-header h2"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2"))
               .not.eql(null);
-            expect(view.getDOMNode().querySelector(".room-notification-header h2").textContent)
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2").textContent)
               .eql("rooms_only_occupant_label2");
+          });
+
+          it("should display a standalone-info-bar-context area after a wait when in the " +
+            "JOINED state and roomContextUrls is null",
+            function() {
+              activeRoomStore.setStoreState({
+                 roomState: ROOM_STATES.JOINED,
+                 roomName: "Monkeys",
+                 roomContextUrls: null
+               });
+
+              clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
+
+              expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context"))
+                .not.eql(null);
+            });
+
+            it("should display a standalone-info-bar-context area after a wait when in the " +
+              "JOINED state and roomName is null",
+              function() {
+                activeRoomStore.setStoreState({
+                   roomState: ROOM_STATES.JOINED,
+                   roomName: null,
+                   roomContextUrls: { location: "http://example.com/" }
+                 });
+
+                clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
+
+                expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context"))
+                  .not.eql(null);
+              });
+
+              it("should display a standalone-info-bar-context area after a wait when in the " +
+                "JOINED state and roomName and roomContextUrls are null",
+                function() {
+                  activeRoomStore.setStoreState({
+                     roomState: ROOM_STATES.JOINED,
+                     roomName: null,
+                     roomContextUrls: null
+                   });
+
+                  clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
+
+                  expect(ReactDOM.findDOMNode(view).querySelector(".standalone-info-bar-context"))
+                    .not.eql(null);
+                });
+
+        it("should enable clicking of context link when url checks against url protocol whitelist",
+          function() {
+            activeRoomStore.setStoreState({
+              roomState: ROOM_STATES.JOINED,
+              roomName: "WhitelistTestRoom",
+              roomContextUrls: [{
+                description: "http",
+                location: "http://fakeurl.com/"
+              }]
+            });
+
+            clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
+
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-context a").getAttribute("href"))
+              .eql("http://fakeurl.com/");
+          });
+
+        it("should not enable clicking of context link when url fails against url protocol whitelist",
+          function() {
+            activeRoomStore.setStoreState({
+              roomState: ROOM_STATES.JOINED,
+              roomName: "WhitelistTestRoom",
+              roomContextUrls: [{
+                description: "nonhttp",
+                location: "somethingelse://fakeurl.com"
+              }]
+            });
+
+            clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
+
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-context a").getAttribute("href"))
+              .eql(null);
           });
 
         it("should not display an message immediately in the SESSION_CONNECTED state",
           function() {
             activeRoomStore.setStoreState({ roomState: ROOM_STATES.SESSION_CONNECTED });
 
-            expect(view.getDOMNode().querySelector(".room-notification-header h2"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2"))
               .eql(null);
           });
 
@@ -781,9 +961,9 @@ describe("loop.standaloneRoomViews", function() {
             activeRoomStore.setStoreState({ roomState: ROOM_STATES.SESSION_CONNECTED });
             clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
 
-            expect(view.getDOMNode().querySelector(".room-notification-header h2"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2"))
               .not.eql(null);
-            expect(view.getDOMNode().querySelector(".room-notification-header h2").textContent)
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2").textContent)
               .eql("rooms_only_occupant_label2");
           });
 
@@ -791,7 +971,7 @@ describe("loop.standaloneRoomViews", function() {
           function() {
             activeRoomStore.setStoreState({ roomState: ROOM_STATES.HAS_PARTICIPANTS });
 
-            expect(view.getDOMNode().querySelector(".room-notification-header h2"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2"))
               .eql(null);
           });
 
@@ -800,7 +980,7 @@ describe("loop.standaloneRoomViews", function() {
             activeRoomStore.setStoreState({ roomState: ROOM_STATES.HAS_PARTICIPANTS });
             clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
 
-            expect(view.getDOMNode().querySelector(".room-notification-header h2"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2"))
               .eql(null);
           });
 
@@ -812,7 +992,7 @@ describe("loop.standaloneRoomViews", function() {
             });
             clock.tick(loop.standaloneRoomViews.StandaloneRoomInfoArea.RENDER_WAITING_DELAY);
 
-            expect(view.getDOMNode().querySelector(".room-notification-header h2").textContent)
+            expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2").textContent)
               .eql("room_owner_left_label");
           });
       });
@@ -822,7 +1002,7 @@ describe("loop.standaloneRoomViews", function() {
           function() {
             activeRoomStore.setStoreState({ roomState: ROOM_STATES.MEDIA_WAIT });
 
-            expect(view.getDOMNode().querySelector(".prompt-media-message"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".prompt-media-message"))
               .not.eql(null);
           });
       });
@@ -832,7 +1012,7 @@ describe("loop.standaloneRoomViews", function() {
           function() {
             activeRoomStore.setStoreState({ roomState: ROOM_STATES.FULL });
 
-            expect(view.getDOMNode().querySelector(".full-room-message"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".full-room-message"))
               .not.eql(null);
           });
       });
@@ -851,9 +1031,9 @@ describe("loop.standaloneRoomViews", function() {
             failureReason: FAILURE_DETAILS.ICE_FAILED
           });
 
-          var ice_failed_message = view.getDOMNode().querySelector(".failed-room-message").textContent;
+          var ice_failed_message = ReactDOM.findDOMNode(view).querySelector(".failed-room-message").textContent;
           expect(ice_failed_message).eql("rooms_ice_failure_message");
-          expect(view.getDOMNode().querySelector(".btn-info")).not.eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".btn-info")).not.eql(null);
         });
       });
 
@@ -861,11 +1041,11 @@ describe("loop.standaloneRoomViews", function() {
         it("should display an ended session message and a rejoin button", function() {
           activeRoomStore.setStoreState({ roomState: ROOM_STATES.ENDED });
 
-          expect(view.getDOMNode().querySelector(".room-notification-header h2"))
+          expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2"))
             .not.eql(null);
-          expect(view.getDOMNode().querySelector(".room-notification-header h2").textContent)
-            .eql("You have disconnected.");
-          expect(view.getDOMNode().querySelector(".btn-join"))
+          expect(ReactDOM.findDOMNode(view).querySelector(".room-notification-header h2").textContent)
+            .eql("room_user_left_label");
+          expect(ReactDOM.findDOMNode(view).querySelector(".btn-join"))
             .not.eql(null);
         });
 
@@ -876,14 +1056,14 @@ describe("loop.standaloneRoomViews", function() {
 
           activeRoomStore.setStoreState({ roomState: ROOM_STATES.ENDED });
 
-          expect(view.getDOMNode().querySelector(".promote-firefox"))
+          expect(ReactDOM.findDOMNode(view).querySelector(".promote-firefox"))
             .not.eql(null);
         });
       });
 
       describe("Join button", function() {
         function getJoinButton(elem) {
-          return elem.getDOMNode().querySelector(".btn-join");
+          return ReactDOM.findDOMNode(elem).querySelector(".btn-join");
         }
 
         it("should render the Join button when room isn't active", function() {
@@ -916,7 +1096,7 @@ describe("loop.standaloneRoomViews", function() {
             streamPaused: true
           });
 
-          var element = view.getDOMNode().querySelector(".remote-stream-paused h1");
+          var element = ReactDOM.findDOMNode(view).querySelector(".remote-stream-paused h1");
           expect(element).not.eql(null);
           expect(element.textContent).eql("rooms_screen_share_paused");
         });
@@ -930,7 +1110,7 @@ describe("loop.standaloneRoomViews", function() {
             "screenShareMediaElement": null
           });
 
-          expect(view.getDOMNode().querySelector(".screen .loading-stream"))
+          expect(ReactDOM.findDOMNode(view).querySelector(".screen .loading-stream"))
               .not.eql(null);
         });
 
@@ -941,7 +1121,7 @@ describe("loop.standaloneRoomViews", function() {
                "screenShareMediaElement": null
              });
 
-             expect(view.getDOMNode().querySelector(".screen .loading-stream"))
+             expect(ReactDOM.findDOMNode(view).querySelector(".screen .loading-stream"))
                  .eql(null);
         });
 
@@ -954,7 +1134,7 @@ describe("loop.standaloneRoomViews", function() {
                "screenShareMediaElement": videoElement
              });
 
-             expect(view.getDOMNode().querySelector(".screen .loading-stream"))
+             expect(ReactDOM.findDOMNode(view).querySelector(".screen .loading-stream"))
                  .eql(null);
         });
 
@@ -965,7 +1145,7 @@ describe("loop.standaloneRoomViews", function() {
                "streamPaused": true
              });
 
-             expect(view.getDOMNode().querySelector(".screen .loading-stream"))
+             expect(ReactDOM.findDOMNode(view).querySelector(".screen .loading-stream"))
                  .eql(null);
         });
       });
@@ -981,29 +1161,42 @@ describe("loop.standaloneRoomViews", function() {
           activeRoomStore.setStoreState({
             roomState: ROOM_STATES.HAS_PARTICIPANTS,
             localSrcMediaElement: videoElement,
+            localVideoEnabled: true,
             videoMuted: false
           });
 
-          expect(view.getDOMNode().querySelector(".local video")).not.eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".local video")).not.eql(null);
         });
 
         it("should not render a local avatar when video_muted is false", function() {
           activeRoomStore.setStoreState({
+            localVideoEnabled: true,
             roomState: ROOM_STATES.HAS_PARTICIPANTS,
             videoMuted: false
           });
 
-          expect(view.getDOMNode().querySelector(".local .avatar")).eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".local .avatar")).eql(null);
+        });
+
+        it("should render a local avatar when local video is not enabled", function() {
+          activeRoomStore.setStoreState({
+            localVideoEnabled: false,
+            roomState: ROOM_STATES.HAS_PARTICIPANTS,
+            videoMuted: false
+          });
+
+          expect(ReactDOM.findDOMNode(view).querySelector(".local .avatar")).not.eql(null);
         });
 
         it("should render local loading screen when no srcMediaElement",
            function() {
              activeRoomStore.setStoreState({
+               localVideoEnabled: true,
                roomState: ROOM_STATES.MEDIA_WAIT,
                remoteSrcMediaElement: null
              });
 
-             expect(view.getDOMNode().querySelector(".local .loading-stream"))
+             expect(ReactDOM.findDOMNode(view).querySelector(".local .loading-stream"))
                  .not.eql(null);
         });
 
@@ -1014,7 +1207,7 @@ describe("loop.standaloneRoomViews", function() {
                localSrcMediaElement: videoElement
              });
 
-             expect(view.getDOMNode().querySelector(".local .loading-stream"))
+             expect(ReactDOM.findDOMNode(view).querySelector(".local .loading-stream"))
                   .eql(null);
         });
 
@@ -1025,7 +1218,7 @@ describe("loop.standaloneRoomViews", function() {
                remoteSrcMediaElement: videoElement
              });
 
-             expect(view.getDOMNode().querySelector(".remote .loading-stream"))
+             expect(ReactDOM.findDOMNode(view).querySelector(".remote .loading-stream"))
                   .eql(null);
         });
 
@@ -1037,7 +1230,7 @@ describe("loop.standaloneRoomViews", function() {
             remoteVideoEnabled: true
           });
 
-          expect(view.getDOMNode().querySelector(".remote video")).not.eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".remote video")).not.eql(null);
         });
 
         it("should render remote video when the room HAS_PARTICIPANTS and" +
@@ -1048,7 +1241,7 @@ describe("loop.standaloneRoomViews", function() {
             remoteVideoEnabled: true
           });
 
-          expect(view.getDOMNode().querySelector(".remote video")).not.eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".remote video")).not.eql(null);
         });
 
         it("should not render remote video when the room HAS_PARTICIPANTS," +
@@ -1060,7 +1253,7 @@ describe("loop.standaloneRoomViews", function() {
             remoteVideoEnabled: false
           });
 
-          expect(view.getDOMNode().querySelector(".remote video")).eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".remote video")).eql(null);
         });
 
         it("should render remote video when the room HAS_PARTICIPANTS," +
@@ -1072,7 +1265,7 @@ describe("loop.standaloneRoomViews", function() {
             remoteVideoEnabled: false
           });
 
-          expect(view.getDOMNode().querySelector(".remote video")).not.eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".remote video")).not.eql(null);
         });
 
         it("should not render a remote avatar when the room is in MEDIA_WAIT", function() {
@@ -1082,7 +1275,7 @@ describe("loop.standaloneRoomViews", function() {
             remoteVideoEnabled: false
           });
 
-          expect(view.getDOMNode().querySelector(".remote .avatar")).eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".remote .avatar")).eql(null);
         });
 
         it("should not render a remote avatar when the room is CLOSING and" +
@@ -1093,7 +1286,7 @@ describe("loop.standaloneRoomViews", function() {
             remoteVideoEnabled: false
           });
 
-          expect(view.getDOMNode().querySelector(".remote .avatar")).eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".remote .avatar")).eql(null);
         });
 
         it("should render a remote avatar when the room HAS_PARTICIPANTS, " +
@@ -1105,7 +1298,7 @@ describe("loop.standaloneRoomViews", function() {
             mediaConnected: true
           });
 
-          expect(view.getDOMNode().querySelector(".remote .avatar")).not.eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".remote .avatar")).not.eql(null);
         });
 
         it("should render a remote avatar when the room HAS_PARTICIPANTS, " +
@@ -1117,13 +1310,13 @@ describe("loop.standaloneRoomViews", function() {
             mediaConnected: true
           });
 
-          expect(view.getDOMNode().querySelector(".remote .avatar")).not.eql(null);
+          expect(ReactDOM.findDOMNode(view).querySelector(".remote .avatar")).not.eql(null);
         });
       });
 
       describe("Leave button", function() {
         function getLeaveButton(elem) {
-          return elem.getDOMNode().querySelector(".btn-hangup");
+          return ReactDOM.findDOMNode(elem).querySelector(".btn-hangup");
         }
 
         it("should remove the Leave button when the room state is READY",
@@ -1186,7 +1379,7 @@ describe("loop.standaloneRoomViews", function() {
               videoMuted: true
             });
 
-            expect(view.getDOMNode().querySelector(".local .avatar"))
+            expect(ReactDOM.findDOMNode(view).querySelector(".local .avatar"))
               .not.eql(null);
           });
 
@@ -1198,7 +1391,7 @@ describe("loop.standaloneRoomViews", function() {
               videoMuted: true
             });
 
-            expect(view.getDOMNode().querySelector(".local .avatar")).not.eql(
+            expect(ReactDOM.findDOMNode(view).querySelector(".local .avatar")).not.eql(
               null);
           });
       });
@@ -1229,7 +1422,7 @@ describe("loop.standaloneRoomViews", function() {
 
       view = mountTestComponent();
 
-      expect(view.getDOMNode()).eql(null);
+      expect(ReactDOM.findDOMNode(view)).eql(null);
     });
 
     it("should render StandaloneHandleUserAgentView if Firefox can handle the room", function() {

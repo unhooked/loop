@@ -12,31 +12,19 @@ const LOOP_SESSION_TYPE = {
 };
 
 /**
- * Values that we segment 2-way media connection length telemetry probes
- * into.
- *
- * @type {{SHORTER_THAN_10S: Number, BETWEEN_10S_AND_30S: Number,
- *   BETWEEN_30S_AND_5M: Number, MORE_THAN_5M: Number}}
- */
-const TWO_WAY_MEDIA_CONN_LENGTH = {
-  SHORTER_THAN_10S: 0,
-  BETWEEN_10S_AND_30S: 1,
-  BETWEEN_30S_AND_5M: 2,
-  MORE_THAN_5M: 3
-};
-
-/**
  * Values that we segment sharing a room URL action telemetry probes into.
  *
  * @type {{COPY_FROM_PANEL: Number, COPY_FROM_CONVERSATION: Number,
- *   EMAIL_FROM_CALLFAILED: Number, EMAIL_FROM_CONVERSATION: Number}}
+ *    EMAIL_FROM_CALLFAILED: Number, EMAIL_FROM_CONVERSATION: Number,
+ *    FACEBOOK_FROM_CONVERSATION: Number, EMAIL_FROM_PANEL: Number}}
  */
 const SHARING_ROOM_URL = {
   COPY_FROM_PANEL: 0,
   COPY_FROM_CONVERSATION: 1,
   EMAIL_FROM_CALLFAILED: 2,
   EMAIL_FROM_CONVERSATION: 3,
-  FACEBOOK_FROM_CONVERSATION: 4
+  FACEBOOK_FROM_CONVERSATION: 4,
+  EMAIL_FROM_PANEL: 5
 };
 
 /**
@@ -50,23 +38,21 @@ const ROOM_CREATE = {
 };
 
 /**
- * Values that we segment room delete action telemetry probes into.
+ * Values that we segment copy panel action telemetry probes into.
  *
- * @type {{DELETE_SUCCESS: Number, DELETE_FAIL: Number}}
+ * @enum {Number}
  */
-const ROOM_DELETE = {
-  DELETE_SUCCESS: 0,
-  DELETE_FAIL: 1
-};
-
-/**
- * Values that we segment sharing screen pause/ resume action telemetry probes into.
- *
- * @type {{PAUSED: Number, RESUMED: Number}}
- */
-const SHARING_SCREEN = {
-  PAUSED: 0,
-  RESUMED: 1
+const COPY_PANEL = {
+  // Copy panel was shown to the user.
+  SHOWN: 0,
+  // User selected "no" and to allow the panel to show again.
+  NO_AGAIN: 1,
+  // User selected "no" and to never show the panel.
+  NO_NEVER: 2,
+  // User selected "yes" and to allow the panel to show again.
+  YES_AGAIN: 3,
+  // User selected "yes" and to never show the panel.
+  YES_NEVER: 4
 };
 
  /**
@@ -106,15 +92,12 @@ Cu.import("resource://gre/modules/FxAccountsOAuthClient.jsm");
 Cu.importGlobalProperties(["URL"]);
 
 this.EXPORTED_SYMBOLS = ["MozLoopService", "LOOP_SESSION_TYPE", "LOOP_MAU_TYPE",
-  "TWO_WAY_MEDIA_CONN_LENGTH", "SHARING_ROOM_URL", "SHARING_SCREEN",
-  "ROOM_CREATE", "ROOM_DELETE"];
+  "SHARING_ROOM_URL", "COPY_PANEL", "ROOM_CREATE"];
 
 XPCOMUtils.defineConstant(this, "LOOP_SESSION_TYPE", LOOP_SESSION_TYPE);
-XPCOMUtils.defineConstant(this, "TWO_WAY_MEDIA_CONN_LENGTH", TWO_WAY_MEDIA_CONN_LENGTH);
 XPCOMUtils.defineConstant(this, "SHARING_ROOM_URL", SHARING_ROOM_URL);
-XPCOMUtils.defineConstant(this, "SHARING_SCREEN", SHARING_SCREEN);
+XPCOMUtils.defineConstant(this, "COPY_PANEL", COPY_PANEL);
 XPCOMUtils.defineConstant(this, "ROOM_CREATE", ROOM_CREATE);
-XPCOMUtils.defineConstant(this, "ROOM_DELETE", ROOM_DELETE);
 XPCOMUtils.defineConstant(this, "LOOP_MAU_TYPE", LOOP_MAU_TYPE);
 
 XPCOMUtils.defineLazyModuleGetter(this, "LoopAPI",
@@ -655,13 +638,9 @@ var MozLoopServiceInternal = {
         if (retryOn401 && sessionType === LOOP_SESSION_TYPE.GUEST) {
           log.info("401 and INVALID_AUTH_TOKEN - retry registration");
           return this.registerWithLoopServer(sessionType, false).then(
-            () => {
-              return this.hawkRequestInternal(sessionType, path, method, payloadObj, false);
-            },
-            () => {
-              // Process the original error that triggered the retry.
-              return handle401Error(error);
-            }
+            () => this.hawkRequestInternal(sessionType, path, method, payloadObj, false),
+            // Process the original error that triggered the retry.
+            () => handle401Error(error)
           );
         }
         return handle401Error(error);
@@ -812,7 +791,9 @@ var MozLoopServiceInternal = {
 
       let report = convertToRTCStatsReport(internalFormat);
         let logStr = "";
-        logs.forEach(s => { logStr += s + "\n"; });
+        logs.forEach(s => {
+          logStr += s + "\n";
+        });
 
         // We have stats and logs.
 
@@ -1245,10 +1226,8 @@ var MozLoopServiceInternal = {
       code: code,
       state: state
     };
-    return this.hawkRequestInternal(LOOP_SESSION_TYPE.FXA, "/fxa-oauth/token", "POST", payload).then(response => {
-      return JSON.parse(response.body);
-    },
-    error => { this._hawkRequestError(error); });
+    return this.hawkRequestInternal(LOOP_SESSION_TYPE.FXA, "/fxa-oauth/token", "POST", payload).then(
+      response => JSON.parse(response.body), error => this._hawkRequestError(error));
   },
 
   /**
@@ -1259,7 +1238,8 @@ var MozLoopServiceInternal = {
    */
   _fxAOAuthComplete: function(deferred, result, keys) {
     if (keys.kBr) {
-      Services.prefs.setCharPref("loop.key.fxa", keys.kBr.k);
+      // Trim Base64 padding from relier keys.
+      Services.prefs.setCharPref("loop.key.fxa", keys.kBr.k.replace(/=/g, "")); // eslint-disable-line no-div-regex
     }
     gFxAOAuthClientPromise = null;
     // Note: The state was already verified in FxAccountsOAuthClient.
@@ -1335,7 +1315,7 @@ this.MozLoopService = {
    *
    * @return {Promise}
    */
-  initialize: Task.async(function*(addonVersion) {
+  initialize: Task.async(function* (addonVersion) {
     // Ensure we don't setup things like listeners more than once.
     if (gServiceInitialized) {
       return Promise.resolve();
@@ -1444,9 +1424,8 @@ this.MozLoopService = {
     }
 
     // Check that the room chatbox is still actually open using its URL
-    let chatboxesForRoom = [...Chat.chatboxes].filter(chatbox => {
-      return chatbox.src == MozLoopServiceInternal.getChatURL(room.roomToken);
-    });
+    let chatboxesForRoom = [...Chat.chatboxes].filter(chatbox =>
+      chatbox.src == MozLoopServiceInternal.getChatURL(room.roomToken));
 
     if (!chatboxesForRoom.length) {
       log.warn("Tried to resume the tour from a join when the chatbox was closed", room);
@@ -1463,7 +1442,7 @@ this.MozLoopService = {
    * Can be called more than once (e.g. if the initial setup fails at some phase).
    * @param {Deferred} deferredInitialization
    */
-  delayedInitialize: Task.async(function*(deferredInitialization) {
+  delayedInitialize: Task.async(function* (deferredInitialization) {
     log.debug("delayedInitialize");
     // Set or clear an error depending on how deferredInitialization gets resolved.
     // We do this first so that it can handle the early returns below.
@@ -1573,6 +1552,18 @@ this.MozLoopService = {
   },
 
   /**
+   * Returns the addon version
+   *
+   * @return {String} A string containing the Addon Version
+   */
+  get addonVersion() {
+    // remove "alpha", "beta" or any non numeric appended to the version string
+    let numericAddonVersion = gAddonVersion.replace(/[^0-9\.]/g, "");
+    return numericAddonVersion;
+  },
+
+  /**
+   *
    * Returns a new GUID (UUID) in curly braces format.
    */
   generateUUID: function() {
@@ -1783,9 +1774,9 @@ this.MozLoopService = {
     if (!forceReAuth && MozLoopServiceInternal.fxAOAuthTokenData) {
       return Promise.resolve(MozLoopServiceInternal.fxAOAuthTokenData);
     }
-    return MozLoopServiceInternal.promiseFxAOAuthAuthorization(forceReAuth).then(response => {
-      return MozLoopServiceInternal.promiseFxAOAuthToken(response.code, response.state);
-    }).then(tokenData => {
+    return MozLoopServiceInternal.promiseFxAOAuthAuthorization(forceReAuth).then(response =>
+      MozLoopServiceInternal.promiseFxAOAuthToken(response.code, response.state)
+    ).then(tokenData => {
       MozLoopServiceInternal.fxAOAuthTokenData = tokenData;
       return MozLoopServiceInternal.promiseRegisteredWithServers(LOOP_SESSION_TYPE.FXA).then(() => {
         MozLoopServiceInternal.clearError("login");
@@ -1815,7 +1806,7 @@ this.MozLoopService = {
    *
    * @return {Promise} that resolves when the FxA logout flow is complete.
    */
-  logOutFromFxA: Task.async(function*() {
+  logOutFromFxA: Task.async(function* () {
     log.debug("logOutFromFxA");
     try {
       yield MozLoopServiceInternal.unregisterFromLoopServer(LOOP_SESSION_TYPE.FXA);
@@ -1900,9 +1891,9 @@ this.MozLoopService = {
   getTourURL: function(aSrc = null, aAdditionalParams = {}) {
     let urlStr = this.getLoopPref("gettingStarted.url");
     let url = new URL(Services.urlFormatter.formatURL(urlStr));
-    for (let paramName in aAdditionalParams) {
+    Object.keys(aAdditionalParams).forEach(paramName => {
       url.searchParams.set(paramName, aAdditionalParams[paramName]);
-    }
+    });
     if (aSrc) {
       url.searchParams.set("utm_source", "firefox-browser");
       url.searchParams.set("utm_medium", "firefox-browser");
@@ -2047,7 +2038,7 @@ this.MozLoopService = {
    */
   hawkRequest: function(sessionType, path, method, payloadObj) {
     return MozLoopServiceInternal.hawkRequest(sessionType, path, method, payloadObj).catch(
-      error => { MozLoopServiceInternal._hawkRequestError(error); });
+      error => MozLoopServiceInternal._hawkRequestError(error));
   },
 
   /**
@@ -2089,10 +2080,8 @@ this.MozLoopService = {
   setScreenShareState: function(windowId, active) {
     if (active) {
       this._activeScreenShares.add(windowId);
-    } else {
-      if (this._activeScreenShares.has(windowId)) {
-        this._activeScreenShares.delete(windowId);
-      }
+    } else if (this._activeScreenShares.has(windowId)) {
+      this._activeScreenShares.delete(windowId);
     }
 
     MozLoopServiceInternal.notifyStatusChanged();

@@ -179,17 +179,13 @@ loop.conversation = (function(mozL10n) {
         sdk: OT
       });
 
-      // expose for functional tests
-      loop.conversation._sdkDriver = sdkDriver;
-
       // Create the stores.
       var activeRoomStore = new loop.store.ActiveRoomStore(dispatcher, {
         isDesktop: true,
         sdkDriver: sdkDriver
       });
-      var conversationAppStore = new loop.store.ConversationAppStore({
+      var conversationAppStore = new loop.store.ConversationAppStore(dispatcher, {
         activeRoomStore: activeRoomStore,
-        dispatcher: dispatcher,
         feedbackPeriod: results[++requestIdx],
         feedbackTimestamp: results[++requestIdx],
         facebookEnabled: results[++requestIdx]
@@ -217,7 +213,7 @@ loop.conversation = (function(mozL10n) {
         textChatStore: textChatStore
       });
 
-      React.render(
+      ReactDOM.render(
         <AppControllerView
           cursorStore={remoteCursorStore}
           dispatcher={dispatcher}
@@ -237,15 +233,7 @@ loop.conversation = (function(mozL10n) {
 
   return {
     AppControllerView: AppControllerView,
-    init: init,
-
-    /**
-     * Exposed for the use of functional tests to be able to check
-     * metric-related execution as the call sequence progresses.
-     *
-     * @type loop.OTSdkDriver
-     */
-    _sdkDriver: null
+    init: init
   };
 })(document.mozL10n);
 

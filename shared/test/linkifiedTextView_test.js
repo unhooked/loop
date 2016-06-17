@@ -37,7 +37,7 @@ describe("loop.shared.views.LinkifiedTextView", function() {
 
   describe("LinkifiedTextView", function() {
     function renderToMarkup(string, extraProps) {
-      return React.renderToStaticMarkup(
+      return ReactDOMServer.renderToStaticMarkup(
         React.createElement(
           LinkifiedTextView,
           _.extend({ rawText: string }, extraProps)));
@@ -76,7 +76,7 @@ describe("loop.shared.views.LinkifiedTextView", function() {
             var markup = renderToMarkup("http://example.com", {});
 
             expect(markup).to.equal(
-              '<p><a href="http://example.com/" target="_blank" rel="noreferrer">http://example.com/</a></p>');
+              '<p><a href="http://example.com/" rel="noreferrer" target="_blank">http://example.com/</a></p>');
           });
       });
 
@@ -94,7 +94,7 @@ describe("loop.shared.views.LinkifiedTextView", function() {
             var markup = renderToMarkup("http://example.com", {});
 
             expect(markup).to.equal(
-              '<p><a href="http://example.com/" target="_blank" rel="noreferrer">http://example.com/</a></p>');
+              '<p><a href="http://example.com/" rel="noreferrer" target="_blank">http://example.com/</a></p>');
           });
       });
 
@@ -111,7 +111,7 @@ describe("loop.shared.views.LinkifiedTextView", function() {
           var linkClickHandler = sinon.stub();
           var comp = mountTestComponent(fakeUrl, { linkClickHandler: linkClickHandler });
 
-          TestUtils.Simulate.click(comp.getDOMNode().querySelector("a"));
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(comp).querySelector("a"));
 
           sinon.assert.calledOnce(linkClickHandler);
         });

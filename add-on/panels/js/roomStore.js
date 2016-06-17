@@ -44,9 +44,9 @@ loop.store = loop.store || {};
   function Room(values) {
     var validatedData = new loop.validate.Validator(roomSchema || {})
                                          .validate(values || {});
-    for (var prop in validatedData) {
+    Object.keys(validatedData).forEach(prop => {
       this[prop] = validatedData[prop];
-    }
+    });
   }
 
   loop.store.Room = Room;
@@ -77,7 +77,6 @@ loop.store = loop.store || {};
      * @type {Array}
      */
     actions: [
-      "addSocialShareProvider",
       "createRoom",
       "createdRoom",
       "createRoomError",
@@ -89,7 +88,6 @@ loop.store = loop.store || {};
       "getAllRooms",
       "getAllRoomsError",
       "openRoom",
-      "shareRoomUrl",
       "updateRoomContext",
       "updateRoomContextDone",
       "updateRoomContextError",
@@ -103,6 +101,7 @@ loop.store = loop.store || {};
 
       this._notifications = options.notifications;
       this._constants = options.constants;
+      this._gotAllRooms = false;
 
       if (options.activeRoomStore) {
         this.activeRoomStore = options.activeRoomStore;
@@ -114,7 +113,9 @@ loop.store = loop.store || {};
     getInitialStoreState: function() {
       return {
         activeRoom: this.activeRoomStore ? this.activeRoomStore.getStoreState() : {},
+        closingNewRoom: false,
         error: null,
+        lastCreatedRoom: null,
         openedRoom: null,
         pendingCreation: false,
         pendingInitialRetrieval: true,
@@ -153,6 +154,7 @@ loop.store = loop.store || {};
     _onRoomAdded: function(addedRoomData) {
       addedRoomData.participants = addedRoomData.participants || [];
       addedRoomData.ctime = addedRoomData.ctime || new Date().getTime();
+
       this.dispatchAction(new sharedActions.UpdateRoomList({
         // Ensure the room isn't part of the list already, then add it.
         roomList: this._storeState.rooms.filter(function(room) {
@@ -165,7 +167,20 @@ loop.store = loop.store || {};
      * Clears the current active room.
      */
     _onRoomClose: function() {
+      let state = this.getStoreState();
+
+      // If the room getting closed has been just created, then open the panel.
+      if (state.lastCreatedRoom && state.openedRoom === state.lastCreatedRoom) {
+        this.setStoreState({
+          closingNewRoom: true
+        });
+        loop.request("SetNameNewRoom");
+      }
+
+      // reset state for closed room
       this.setStoreState({
+        closingNewRoom: false,
+        lastCreatedRoom: null,
         openedRoom: null
       });
     },
@@ -268,6 +283,11 @@ loop.store = loop.store || {};
           return;
         }
 
+        // Keep the token for the last created room.
+        this.setStoreState({
+          lastCreatedRoom: result.roomToken
+        });
+
         this.dispatchAction(new sharedActions.CreatedRoom({
           decryptedContext: result.decryptedContext,
           roomToken: result.roomToken,
@@ -326,10 +346,7 @@ loop.store = loop.store || {};
         console.error("No URL sharing type bucket found for '" + from + "'");
         return;
       }
-      loop.requestMulti(
-        ["TelemetryAddValue", "LOOP_SHARING_ROOM_URL", bucket],
-        ["TelemetryAddValue", "LOOP_ACTIVITY_COUNTER", this._constants.LOOP_MAU_TYPE.ROOM_SHARE]
-      );
+      loop.request("TelemetryAddValue", "LOOP_ACTIVITY_COUNTER", this._constants.LOOP_MAU_TYPE.ROOM_SHARE);
     },
 
     /**
@@ -351,7 +368,6 @@ loop.store = loop.store || {};
       }
       loop.requestMulti(
         ["NotifyUITour", "Loop:RoomURLEmailed"],
-        ["TelemetryAddValue", "LOOP_SHARING_ROOM_URL", bucket],
         ["TelemetryAddValue", "LOOP_ACTIVITY_COUNTER", this._constants.LOOP_MAU_TYPE.ROOM_SHARE]
       );
     },
@@ -389,49 +405,7 @@ loop.store = loop.store || {};
         console.error("No URL sharing type bucket found for '" + from + "'");
         return;
       }
-      loop.requestMulti(
-        ["TelemetryAddValue", "LOOP_SHARING_ROOM_URL", bucket],
-        ["TelemetryAddValue", "LOOP_ACTIVITY_COUNTER", this._constants.LOOP_MAU_TYPE.ROOM_SHARE]
-      );
-    },
-
-    /**
-     * Share a room url.
-     *
-     * @param  {sharedActions.ShareRoomUrl} actionData The action data.
-     */
-    shareRoomUrl: function(actionData) {
-      var providerOrigin = new URL(actionData.provider.origin).hostname;
-      var shareTitle = "";
-      var shareBody = null;
-
-      switch (providerOrigin) {
-        case "mail.google.com":
-          shareTitle = mozL10n.get("share_email_subject7");
-          shareBody = mozL10n.get("share_email_body7", {
-            callUrl: actionData.roomUrl
-          });
-          shareBody += mozL10n.get("share_email_footer2");
-          break;
-        case "twitter.com":
-        default:
-          shareTitle = mozL10n.get("share_tweet", {
-            clientShortname2: mozL10n.get("clientShortname2")
-          });
-          break;
-      }
-
-      loop.requestMulti(
-        ["SocialShareRoom", actionData.provider.origin, actionData.roomUrl,
-         shareTitle, shareBody],
-        ["NotifyUITour", "Loop:RoomURLShared"]);
-    },
-
-    /**
-     * Open the share panel to add a Social share provider.
-     */
-    addSocialShareProvider: function() {
-      loop.request("AddSocialShareProvider");
+      loop.request("TelemetryAddValue", "LOOP_ACTIVITY_COUNTER", this._constants.LOOP_MAU_TYPE.ROOM_SHARE);
     },
 
     /**
@@ -445,12 +419,7 @@ loop.store = loop.store || {};
         if (isError) {
           this.dispatchAction(new sharedActions.DeleteRoomError({ error: result }));
         }
-        var buckets = this._constants.ROOM_DELETE;
-        loop.requestMulti(
-          ["TelemetryAddValue", "LOOP_ROOM_DELETE", buckets[isError ?
-            "DELETE_FAIL" : "DELETE_SUCCESS"]],
-          ["TelemetryAddValue", "LOOP_ACTIVITY_COUNTER", this._constants.LOOP_MAU_TYPE.ROOM_DELETE]
-        );
+        loop.request("TelemetryAddValue", "LOOP_ACTIVITY_COUNTER", this._constants.LOOP_MAU_TYPE.ROOM_DELETE);
       }.bind(this));
     },
 
@@ -467,6 +436,12 @@ loop.store = loop.store || {};
      * Gather the list of all available rooms from the Loop API.
      */
     getAllRooms: function() {
+      // XXX Ideally, we'd have a specific command to "start up" the room store
+      // to get the rooms. We should address this alongside bug 1074665.
+      if (this._gotAllRooms) {
+        return;
+      }
+
       loop.request("Rooms:GetAll", null).then(function(result) {
         var action;
 
@@ -479,6 +454,8 @@ loop.store = loop.store || {};
         }
 
         this.dispatchAction(action);
+
+        this._gotAllRooms = true;
 
         // We can only start listening to room events after getAll() has been
         // called executed first.

@@ -55,8 +55,7 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
     roomDescription: "roomDescription",
     roomInfoFailure: "roomInfoFailure",
     roomName: "roomName",
-    roomState: "roomState",
-    socialShareProviders: "socialShareProviders"
+    roomState: "roomState"
   };
 
   var updateContextTimer = null;
@@ -109,6 +108,7 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
       "localVideoDimensions",
       "mediaConnected",
       "receivingScreenShare",
+      "remoteAudioEnabled",
       "remotePeerDisconnected",
       "remoteSrcMediaElement",
       "remoteVideoDimensions",
@@ -130,6 +130,7 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
         roomState: ROOM_STATES.INIT,
         audioMuted: false,
         videoMuted: false,
+        remoteAudioEnabled: false,
         remoteVideoEnabled: false,
         failureReason: undefined,
         // Whether or not Firefox can handle this room in the conversation
@@ -146,7 +147,7 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
         sharingPaused: false,
         receivingScreenShare: false,
         remotePeerDisconnected: false,
-        // Any urls (aka context) associated with the room.
+        // Any urls (aka context) associated with the room. null if no context.
         roomContextUrls: null,
         // The description for a room as stored in the context data.
         roomDescription: null,
@@ -156,8 +157,6 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
         roomName: null,
         // True when sharing screen has been paused.
         streamPaused: false,
-        // Social API state.
-        socialShareProviders: null,
         // True if media has been connected both-ways.
         mediaConnected: false,
         // True if a chat message was sent or received during a session.
@@ -271,7 +270,6 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
         "startBrowserShare",
         "endScreenShare",
         "toggleBrowserSharing",
-        "updateSocialShareInfo",
         "connectionStatus",
         "mediaConnected",
         "videoScreenStreamChanged"
@@ -286,13 +284,11 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
 
       this._onUpdateListener = this._handleRoomUpdate.bind(this);
       this._onDeleteListener = this._handleRoomDelete.bind(this);
-      this._onSocialShareUpdate = this._handleSocialShareUpdate.bind(this);
 
       var roomToken = this._storeState.roomToken;
       loop.request("Rooms:PushSubscription", ["delete:" + roomToken, "update:" + roomToken]);
       loop.subscribe("Rooms:Delete:" + roomToken, this._handleRoomDelete.bind(this));
       loop.subscribe("Rooms:Update:" + roomToken, this._handleRoomUpdate.bind(this));
-      loop.subscribe("SocialProvidersChanged", this._onSocialShareUpdate);
     },
 
     /**
@@ -318,34 +314,29 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
       this._registerPostSetupActions();
 
       // Get the window data from the Loop API.
-      return loop.requestMulti(
-        ["Rooms:Get", actionData.roomToken],
-        ["GetSocialShareProviders"])
-        .then(function(results) {
-          var room = results[0];
-          var socialShareProviders = results[1];
+      return loop.request("Rooms:Get", actionData.roomToken).then(function(result) {
+        var room = result;
 
-          if (room.isError) {
-            this.dispatchAction(new sharedActions.RoomFailure({
-              error: room,
-              failedJoinRequest: false
-            }));
-            return;
-          }
-
-          this.dispatchAction(new sharedActions.UpdateRoomInfo({
-            participants: room.participants,
-            roomContextUrls: room.decryptedContext.urls,
-            roomDescription: room.decryptedContext.description,
-            roomName: room.decryptedContext.roomName,
-            roomState: ROOM_STATES.READY,
-            roomUrl: room.roomUrl,
-            socialShareProviders: socialShareProviders
+        if (result.isError) {
+          this.dispatchAction(new sharedActions.RoomFailure({
+            error: result,
+            failedJoinRequest: false
           }));
+          return;
+        }
 
-          // For the conversation window, we need to automatically join the room.
-          this.dispatchAction(new sharedActions.JoinRoom());
-        }.bind(this));
+        this.dispatchAction(new sharedActions.UpdateRoomInfo({
+          participants: room.participants,
+          roomContextUrls: room.decryptedContext.urls,
+          roomDescription: room.decryptedContext.description,
+          roomName: room.decryptedContext.roomName,
+          roomState: ROOM_STATES.READY,
+          roomUrl: room.roomUrl
+        }));
+
+        // For the conversation window, we need to automatically join the room.
+        this.dispatchAction(new sharedActions.JoinRoom());
+      }.bind(this));
     },
 
     /**
@@ -547,18 +538,6 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
     },
 
     /**
-     * Handles the updateSocialShareInfo action. Updates the room data with new
-     * Social API info.
-     *
-     * @param  {sharedActions.UpdateSocialShareInfo} actionData
-     */
-    updateSocialShareInfo: function(actionData) {
-      this.setStoreState({
-        socialShareProviders: actionData.socialShareProviders
-      });
-    },
-
-    /**
      * Handles room updates notified by the Loop rooms API.
      *
      * @param {Object} roomData  The new roomData.
@@ -581,18 +560,6 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
       this._sdkDriver.forceDisconnectAll(function() {
         window.close();
       });
-    },
-
-    /**
-     * Handles an update of the position of the Share widget and changes to list
-     * of Social API providers, notified by the Loop API.
-     */
-    _handleSocialShareUpdate: function() {
-      loop.request("GetSocialShareProviders").then(function(result) {
-        this.dispatchAction(new sharedActions.UpdateSocialShareInfo({
-          socialShareProviders: result
-        }));
-      }.bind(this));
     },
 
     /**
@@ -634,19 +601,17 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
           // XXX Firefox didn't handle this, even though it said it could
           // previously. We should add better user feedback here.
           console.error("Firefox didn't handle room it said it could.");
+        } else if (e.detail.message.alreadyOpen) {
+          this.dispatcher.dispatch(new sharedActions.ConnectionFailure({
+            reason: FAILURE_DETAILS.ROOM_ALREADY_OPEN
+          }));
         } else {
-          if (e.detail.message.alreadyOpen) {
-            this.dispatcher.dispatch(new sharedActions.ConnectionFailure({
-              reason: FAILURE_DETAILS.ROOM_ALREADY_OPEN
-            }));
-          } else {
-            this.dispatcher.dispatch(new sharedActions.JoinedRoom({
-              apiKey: "",
-              sessionToken: "",
-              sessionId: "",
-              expires: 0
-            }));
-          }
+          this.dispatcher.dispatch(new sharedActions.JoinedRoom({
+            apiKey: "",
+            sessionToken: "",
+            sessionId: "",
+            expires: 0
+          }));
         }
       }
 
@@ -751,9 +716,6 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
 
       this._setRefreshTimeout(actionData.expires);
 
-      // Only send media telemetry on one side of the call: the desktop side.
-      actionData.sendTwoWayMediaTelemetry = this._isDesktop;
-
       this._sdkDriver.connectSession(actionData);
 
       loop.request("AddConversationContext", this._storeState.windowId,
@@ -808,6 +770,7 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
     mediaStreamCreated: function(actionData) {
       if (actionData.isLocal) {
         this.setStoreState({
+          localAudioEnabled: actionData.hasAudio,
           localVideoEnabled: actionData.hasVideo,
           localSrcMediaElement: actionData.srcMediaElement
         });
@@ -815,6 +778,7 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
       }
 
       this.setStoreState({
+        remoteAudioEnabled: actionData.hasAudio,
         remoteVideoEnabled: actionData.hasVideo,
         remoteSrcMediaElement: actionData.srcMediaElement
       });
@@ -1041,7 +1005,7 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
     /**
      * Handles a remote peer disconnecting from the session. As we currently only
      * support 2 participants, we declare the room as SESSION_CONNECTED as soon as
-     * one participantleaves.
+     * one participant leaves.
      */
     remotePeerDisconnected: function() {
       // Update the participants to just the owner.
@@ -1099,7 +1063,9 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
      * @param {sharedActions.LeaveRoom} actionData
      */
     leaveRoom: function(actionData) {
-      this._leaveRoom(ROOM_STATES.ENDED, false, actionData && actionData.windowStayingOpen);
+      this._leaveRoom(ROOM_STATES.ENDED,
+                      false,
+                      actionData && actionData.windowStayingOpen);
     },
 
     /**
@@ -1261,8 +1227,6 @@ loop.store.ActiveRoomStore = (function(mozL10n) {
         "receivedTextChatMessage",
         "sendTextChatMessage"
       ]);
-      // Ping telemetry of this session with successful message(s) exchange.
-      loop.request("TelemetryAddValue", "LOOP_ROOM_SESSION_WITHCHAT", 1);
     },
 
     /**

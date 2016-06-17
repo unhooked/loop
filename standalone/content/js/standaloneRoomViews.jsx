@@ -22,18 +22,20 @@ loop.standaloneRoomViews = (function(mozL10n) {
       // We use this technique of static markup as it means we get
       // just one overall string for L10n to define the structure of
       // the whole item.
+      var tosString =
+        '<a href="' + loop.config.legalWebsiteUrl + '" rel="noreferrer" target="_blank">' +
+        mozL10n.get("terms_of_use_link_text") +
+        "</a>";
+
+      var privacyString =
+        '<a href="' + loop.config.privacyWebsiteUrl + '" rel="noreferrer" target="_blank">' +
+        mozL10n.get("privacy_notice_link_text") +
+        "</a>";
+
       return mozL10n.get("legal_text_and_links", {
         "clientShortname": mozL10n.get("clientShortname2"),
-        "terms_of_use_url": React.renderToStaticMarkup(
-          <a href={loop.config.legalWebsiteUrl} rel="noreferrer" target="_blank">
-            {mozL10n.get("terms_of_use_link_text")}
-          </a>
-        ),
-        "privacy_notice_url": React.renderToStaticMarkup(
-          <a href={loop.config.privacyWebsiteUrl} rel="noreferrer" target="_blank">
-            {mozL10n.get("privacy_notice_link_text")}
-          </a>
-        )
+        "terms_of_use_url": tosString,
+        "privacy_notice_url": privacyString
       });
     },
 
@@ -152,8 +154,9 @@ loop.standaloneRoomViews = (function(mozL10n) {
     getFailureString: function() {
       switch (this.props.failureReason) {
         case FAILURE_DETAILS.MEDIA_DENIED:
-        // XXX Bug 1166824 should provide a better string for this.
+        // Falls through - we use the same message.
         case FAILURE_DETAILS.NO_MEDIA:
+          // XXX Bug 1166824 should provide a better string for this.
           return mozL10n.get("rooms_media_denied_message");
         case FAILURE_DETAILS.EXPIRED_OR_INVALID:
           return mozL10n.get("rooms_unavailable_notification_message");
@@ -288,12 +291,12 @@ loop.standaloneRoomViews = (function(mozL10n) {
       return (
         <div className="promote-firefox">
           <h2>{mozL10n.get("rooms_promote_firefox_label")}</h2>
-          <button className="btn btn-info"
-                  onClick={this.props.joinRoom}>
+          <a className="btn btn-info" href={loop.config.downloadFirefoxUrl}
+            rel="noreferrer" target="_blank">
             {mozL10n.get("rooms_promote_firefox_button", {
               brandShortname: mozL10n.get("brandShortname")
             })}
-          </button>
+          </a>
         </div>
       );
     },
@@ -316,12 +319,12 @@ loop.standaloneRoomViews = (function(mozL10n) {
           return (
             <div className="room-notification-area">
               <div className="room-notification-header">
-                <h2>You have disconnected.</h2>
+                <h2>{mozL10n.get("room_user_left_label")}</h2>
               </div>
               <div className="room-notification-content">
                 <button className="btn btn-join btn-info"
                         onClick={this.props.joinRoom}>
-                  Rejoin
+                  {mozL10n.get("rooms_rejoin_button")}
                 </button>
                 {!this.props.isFirefox ? this._renderPromoteFirefoxView() : null}
               </div>
@@ -344,26 +347,6 @@ loop.standaloneRoomViews = (function(mozL10n) {
             </div>
           );
         }
-        case ROOM_STATES.MEDIA_WAIT: {
-          var msg = mozL10n.get("call_progress_getting_media_description",
-                                { clientShortname: mozL10n.get("clientShortname2") });
-          var utils = loop.shared.utils;
-          var isChrome = utils.isChrome(navigator.userAgent);
-          var isFirefox = utils.isFirefox(navigator.userAgent);
-          var isOpera = utils.isOpera(navigator.userAgent);
-          var promptMediaMessageClasses = classNames({
-            "prompt-media-message": true,
-            "chrome": isChrome,
-            "firefox": isFirefox,
-            "opera": isOpera,
-            "other": !isChrome && !isFirefox && !isOpera
-          });
-          return (
-            <p className={promptMediaMessageClasses}>
-              {msg}
-            </p>
-          );
-        }
         case ROOM_STATES.JOINING:
         case ROOM_STATES.JOINED:
         case ROOM_STATES.SESSION_CONNECTED: {
@@ -374,14 +357,12 @@ loop.standaloneRoomViews = (function(mozL10n) {
           }
 
           var storeState = this.props.activeRoomStore.getStoreState("roomContextUrls");
-          var context = storeState[0] || [];
+          var context;
 
-          // Bug 1196143 - formatURL sanitizes(decodes) the URL from IDN homographic attacks.
-          // Try catch to not produce output if invalid url
-          try {
-            var sanitizeURL = loop.shared.utils.formatURL(context.location, true).hostname;
-          } catch (ex) {
-            sanitizeURL = null;
+          if (storeState && storeState[0]) {
+            context = storeState[0];
+          } else {
+            context = [];
           }
 
           var thumbnail = context.thumbnail;
@@ -402,20 +383,13 @@ loop.standaloneRoomViews = (function(mozL10n) {
                 <p>
                   {mozL10n.get("rooms_wait_message")}
                 </p>
-
                 <div className="room-notification-context">
-                  <a className="context-wrapper"
-                     href={context.location ? context.location : null}
-                     rel="noreferrer"
-                     target="_blank">
-                    <img className="context-preview" src={thumbnail} />
-                    <span className="context-info">
-                      {context.description}
-                      <span className="context-url">
-                        {sanitizeURL}
-                      </span>
-                    </span>
-                  </a>
+                  <sharedViews.ContextUrlView
+                    allowClick={true}
+                    description={context.description}
+                    dispatcher={this.props.dispatcher}
+                    thumbnail={thumbnail}
+                    url={context.location} />
                 </div>
               </div>
             </div>
@@ -456,6 +430,8 @@ loop.standaloneRoomViews = (function(mozL10n) {
     propTypes: {
       audio: React.PropTypes.object.isRequired,
       dispatcher: React.PropTypes.instanceOf(loop.Dispatcher).isRequired,
+      forceAudioDisabled: React.PropTypes.bool,
+      forceVideoDisabled: React.PropTypes.bool,
       leaveRoom: React.PropTypes.func.isRequired,
       room: React.PropTypes.object.isRequired,
       video: React.PropTypes.object.isRequired
@@ -464,7 +440,9 @@ loop.standaloneRoomViews = (function(mozL10n) {
     getDefaultProps: function() {
       return {
         video: { enabled: true, visible: true },
-        audio: { enabled: true, visible: true }
+        audio: { enabled: true, visible: true },
+        forceVideoDisabled: false,
+        forceAudioDisabled: false
       };
     },
 
@@ -489,15 +467,17 @@ loop.standaloneRoomViews = (function(mozL10n) {
       return (
         <div className="media-control-buttons">
           <sharedViews.VideoMuteButton
+            disabled={this.props.forceVideoDisabled}
             dispatcher={this.props.dispatcher}
-            muted={!this.props.video.enabled}/>
+            muted={!this.props.video.enabled} />
           <sharedViews.AudioMuteButton
+            disabled={this.props.forceAudioDisabled}
             dispatcher={this.props.dispatcher}
-            muted={!this.props.audio.enabled}/>
+            muted={!this.props.audio.enabled} />
           <GeneralSupportURL dispatcher={this.props.dispatcher} />
           <sharedViews.HangUpControlButton
             action={this.props.leaveRoom}
-            title={mozL10n.get("rooms_leave_button_label")}/>
+            title={mozL10n.get("rooms_leave_button_label")} />
         </div>
       );
     },
@@ -509,7 +489,7 @@ loop.standaloneRoomViews = (function(mozL10n) {
           <div className="standalone-info-bar-spacer">
             <StandaloneInfoView
               dispatcher={this.props.dispatcher}
-              room={this.props.room}/>
+              room={this.props.room} />
           </div>
           {this.renderButtons()}
         </div>
@@ -523,34 +503,40 @@ loop.standaloneRoomViews = (function(mozL10n) {
       room: React.PropTypes.object.isRequired
     },
 
-    renderIcon: function() {
-      var urlData = (this.props.room.roomContextUrls || [])[0] || {};
-      if (urlData.location) {
-        return (
-          <img className="context-favicon" src={urlData.thumbnail || "shared/img/icons-16x16.svg#globe"} />
-        );
-      }
-
-      return (
-        <img className="context-favicon" src="shared/img/icons-16x16.svg#globe" />
-      );
-    },
-
     renderContext: function() {
-      var urlData = (this.props.room.roomContextUrls || [])[0] || {};
+      var urlData = {};
+      var roomContextUrls = this.props.room.roomContextUrls || [];
+      if (roomContextUrls.length > 0) {
+        urlData = roomContextUrls[0];
+      }
+      var thumbnail = "shared/img/icons-16x16.svg#globe";
+      if (urlData.location && urlData.thumbnail) {
+        thumbnail = urlData.thumbnail;
+      }
       var roomTitle = this.props.room.roomName ||
         urlData.description || urlData.location ||
         mozL10n.get("room_name_untitled_page");
 
       return (
-        <div className="context-info">
-          <a href={urlData.location}
-            rel="noreferrer"
-            target="_blank"
-            title={urlData.description}>
-            {this.renderIcon()}
+        <div className="standalone-info-bar-context">
+          <sharedViews.ContextUrlLink
+            allowClick={true}
+            title={urlData.description}
+            url={urlData.location}>
+            <img className="context-favicon" src={thumbnail} />
             <h2>{roomTitle}</h2>
-          </a>
+          </sharedViews.ContextUrlLink>
+        </div>
+      );
+    },
+
+    renderWelcomeMessage: function() {
+      var roomName = this.props.room.roomName ? this.props.room.roomName :
+            mozL10n.get("clientShortname2");
+
+      return (
+        <div className="standalone-info-bar-context">
+          <p>{mozL10n.get("rooms_welcome_title", { conversationName: roomName })}</p>
         </div>
       );
     },
@@ -564,7 +550,7 @@ loop.standaloneRoomViews = (function(mozL10n) {
         case ROOM_STATES.INIT:
         case ROOM_STATES.GATHER:
           return (
-            <div className="context-info">
+            <div className="standalone-info-bar-context">
               <ToSView dispatcher={this.props.dispatcher} />
             </div>
           );
@@ -572,6 +558,10 @@ loop.standaloneRoomViews = (function(mozL10n) {
         case ROOM_STATES.JOINING:
         case ROOM_STATES.JOINED:
         case ROOM_STATES.SESSION_CONNECTED:
+          return (
+            this.renderWelcomeMessage()
+          );
+        case ROOM_STATES.HAS_PARTICIPANTS:
           return (
             this.renderContext()
           );
@@ -614,10 +604,8 @@ loop.standaloneRoomViews = (function(mozL10n) {
         if (this.props.introSeen) {
           introSeen = true;
         }
-      } else {
-        if (localStorage.getItem("introSeen") !== null) {
-          introSeen = true;
-        }
+      } else if (localStorage.getItem("introSeen") !== null) {
+        introSeen = true;
       }
       var storeState = this.props.activeRoomStore.getStoreState();
       return _.extend({}, storeState, {
@@ -823,6 +811,8 @@ loop.standaloneRoomViews = (function(mozL10n) {
             audio={{ enabled: !this.state.audioMuted,
                      visible: this._roomIsActive() }}
             dispatcher={this.props.dispatcher}
+            forceAudioDisabled={!this.state.localAudioEnabled}
+            forceVideoDisabled={!this.state.localVideoEnabled}
             leaveRoom={this.leaveRoom}
             room={this.props.activeRoomStore.getStoreState()}
             video={{ enabled: !this.state.videoMuted,
@@ -836,7 +826,7 @@ loop.standaloneRoomViews = (function(mozL10n) {
             isScreenShareLoading={this._isScreenShareLoading()}
             localPosterUrl={this.props.localPosterUrl}
             localSrcMediaElement={this.state.localSrcMediaElement}
-            localVideoMuted={this.state.videoMuted}
+            localVideoMuted={this.state.videoMuted || !this.state.localVideoEnabled}
             matchMedia={this.state.matchMedia || window.matchMedia.bind(window)}
             remotePosterUrl={this.props.remotePosterUrl}
             remoteSrcMediaElement={this.state.remoteSrcMediaElement}
@@ -845,6 +835,7 @@ loop.standaloneRoomViews = (function(mozL10n) {
             screenSharePosterUrl={this.props.screenSharePosterUrl}
             screenSharingPaused={this.state.streamPaused}
             showInitialContext={true}
+            showMediaWait={this.state.roomState === ROOM_STATES.MEDIA_WAIT}
             showTile={this._shouldRenderTile()}>
             <StandaloneRoomInfoArea activeRoomStore={this.props.activeRoomStore}
               dispatcher={this.props.dispatcher}

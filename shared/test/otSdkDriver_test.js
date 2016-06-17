@@ -13,7 +13,7 @@ describe("loop.OTSdkDriver", function() {
   var CURSOR_MESSAGE_TYPES = loop.shared.utils.CURSOR_MESSAGE_TYPES;
 
   var sandbox, constants;
-  var dispatcher, driver, requestStubs, publisher, screenshare, sdk, session;
+  var dispatcher, driver, publisher, screenshare, sdk, session;
   var sessionData, subscriber, publisherConfig, fakeEvent;
 
   beforeEach(function() {
@@ -30,11 +30,6 @@ describe("loop.OTSdkDriver", function() {
       sessionId: "3216549870",
       sessionToken: "1357924680"
     };
-
-    LoopMochaUtils.stubLoopRequest(requestStubs = {
-      TelemetryAddValue: sinon.stub(),
-      GetLoopPref: sinon.stub()
-    });
 
     dispatcher = new loop.Dispatcher();
 
@@ -84,12 +79,6 @@ describe("loop.OTSdkDriver", function() {
     };
 
     constants = {
-        TWO_WAY_MEDIA_CONN_LENGTH: {
-        SHORTER_THAN_10S: 0,
-        BETWEEN_10S_AND_30S: 1,
-        BETWEEN_30S_AND_5M: 2,
-        MORE_THAN_5M: 3
-      },
       SHARING_STATE_CHANGE: {
         WINDOW_ENABLED: 0,
         WINDOW_DISABLED: 1,
@@ -142,23 +131,6 @@ describe("loop.OTSdkDriver", function() {
         sendStreams: 0,
         recvStreams: 0
       });
-    });
-
-    it("should enable debug for two way media telemetry if required", function() {
-      // Simulate the pref being enabled.
-      sandbox.stub(loop.shared.utils, "getBoolPreference", function(prefName, callback) {
-        if (prefName === "debug.twoWayMediaTelemetry") {
-          callback(true);
-        }
-      });
-
-      driver = new loop.OTSdkDriver({
-        constants: constants,
-        dispatcher: dispatcher,
-        sdk: sdk
-      });
-
-      expect(driver._debugTwoWayMediaTelemetry).eql(true);
     });
 
     it("should enable debug on the sdk if required", function() {
@@ -223,23 +195,10 @@ describe("loop.OTSdkDriver", function() {
     it("should dispatch ConnectionFailure if an error occurred", function() {
       sdk.initPublisher.callArgWith(2, { message: "FAKE" });
 
-      sinon.assert.calledTwice(dispatcher.dispatch);
+      sinon.assert.calledOnce(dispatcher.dispatch);
       sinon.assert.calledWithExactly(dispatcher.dispatch,
         new sharedActions.ConnectionFailure({
           reason: FAILURE_DETAILS.UNABLE_TO_PUBLISH_MEDIA
-        }));
-    });
-
-    it("should notify metrics if an error occurred", function() {
-      sdk.initPublisher.callArgWith(2, { code: 123, message: "FAKE" });
-
-      sinon.assert.calledWithExactly(dispatcher.dispatch,
-        new sharedActions.ConnectionStatus({
-          event: "sdk.exception.123.FAKE",
-          state: "starting",
-          connections: 0,
-          sendStreams: 0,
-          recvStreams: 0
         }));
     });
   });
@@ -315,23 +274,10 @@ describe("loop.OTSdkDriver", function() {
     it("should dispatch ConnectionFailure if an error occurred", function() {
       sdk.initPublisher.callArgWith(2, { code: 123, message: "FAKE" });
 
-      sinon.assert.calledTwice(dispatcher.dispatch);
+      sinon.assert.calledOnce(dispatcher.dispatch);
       sinon.assert.calledWithExactly(dispatcher.dispatch,
         new sharedActions.ScreenSharingState({
           state: SCREEN_SHARE_STATES.INACTIVE
-        }));
-    });
-
-    it("should notify metrics if an error occurred", function() {
-      sdk.initPublisher.callArgWith(2, { code: 123, message: "FAKE" });
-
-      sinon.assert.calledWithExactly(dispatcher.dispatch,
-        new sharedActions.ConnectionStatus({
-          event: "sdk.exception.screen.123.FAKE",
-          state: "starting",
-          connections: 0,
-          sendStreams: 0,
-          recvStreams: 0
         }));
     });
   });
@@ -470,15 +416,6 @@ describe("loop.OTSdkDriver", function() {
 
       sinon.assert.calledOnce(session.connect);
       sinon.assert.calledWith(session.connect, "1234567890", "1357924680");
-    });
-
-    it("should set the two-way media start time to 'uninitialized' " +
-       "when sessionData.sendTwoWayMediaTelemetry is true'", function() {
-      driver.connectSession(_.extend(sessionData,
-                                     { sendTwoWayMediaTelemetry: true }));
-
-      expect(driver._getTwoWayMediaStartTime()).to.eql(
-        driver.CONNECTION_START_TIME_UNINITIALIZED);
     });
 
     describe("On connection complete", function() {
@@ -665,108 +602,6 @@ describe("loop.OTSdkDriver", function() {
 
       sinon.assert.calledOnce(publisher.destroy);
     });
-
-    it("should call _noteConnectionLengthIfNeeded with connection duration", function() {
-      driver.session = session;
-      var startTime = 1;
-      var endTime = 3;
-      driver._sendTwoWayMediaTelemetry = true;
-      driver._setTwoWayMediaStartTime(startTime);
-      sandbox.stub(performance, "now").returns(endTime);
-      sandbox.stub(driver, "_noteConnectionLengthIfNeeded");
-
-      driver.disconnectSession();
-
-      sinon.assert.calledWith(driver._noteConnectionLengthIfNeeded, startTime,
-                              endTime);
-    });
-
-    it("should reset the two-way media connection start time", function() {
-      driver.session = session;
-      var startTime = 1;
-      driver._sendTwoWayMediaTelemetry = true;
-      driver._setTwoWayMediaStartTime(startTime);
-      sandbox.stub(performance, "now");
-      sandbox.stub(driver, "_noteConnectionLengthIfNeeded");
-
-      driver.disconnectSession();
-
-      expect(driver._getTwoWayMediaStartTime()).to.eql(
-        driver.CONNECTION_START_TIME_UNINITIALIZED);
-    });
-  });
-
-  describe("#_noteConnectionLengthIfNeeded", function() {
-    var startTimeMS;
-    beforeEach(function() {
-      startTimeMS = 1;
-      driver._sendTwoWayMediaTelemetry = true;
-      driver._setTwoWayMediaStartTime(startTimeMS);
-    });
-
-    it("should set two-way media start time to CONNECTION_START_TIME_ALREADY_NOTED", function() {
-      var endTimeMS = 3;
-      driver._noteConnectionLengthIfNeeded(startTimeMS, endTimeMS);
-
-      expect(driver._getTwoWayMediaStartTime()).to.eql(
-        driver.CONNECTION_START_TIME_ALREADY_NOTED);
-    });
-
-    it("should record telemetry with SHORTER_THAN_10S for calls less than 10s", function() {
-      var endTimeMS = 9000;
-
-      driver._noteConnectionLengthIfNeeded(startTimeMS, endTimeMS);
-
-      sinon.assert.calledOnce(requestStubs.TelemetryAddValue);
-      sinon.assert.calledWith(requestStubs.TelemetryAddValue,
-        "LOOP_TWO_WAY_MEDIA_CONN_LENGTH_1",
-        constants.TWO_WAY_MEDIA_CONN_LENGTH.SHORTER_THAN_10S);
-    });
-
-    it("should call record telemetry with BETWEEN_10S_AND_30S for 15s calls",
-      function() {
-        var endTimeMS = 15000;
-
-        driver._noteConnectionLengthIfNeeded(startTimeMS, endTimeMS);
-
-        sinon.assert.calledOnce(requestStubs.TelemetryAddValue);
-        sinon.assert.calledWith(requestStubs.TelemetryAddValue,
-          "LOOP_TWO_WAY_MEDIA_CONN_LENGTH_1",
-          constants.TWO_WAY_MEDIA_CONN_LENGTH.BETWEEN_10S_AND_30S);
-      });
-
-    it("should call record telemetry with BETWEEN_30S_AND_5M for 60s calls",
-      function() {
-        var endTimeMS = 60 * 1000;
-
-        driver._noteConnectionLengthIfNeeded(startTimeMS, endTimeMS);
-
-        sinon.assert.calledOnce(requestStubs.TelemetryAddValue);
-        sinon.assert.calledWith(requestStubs.TelemetryAddValue,
-          "LOOP_TWO_WAY_MEDIA_CONN_LENGTH_1",
-          constants.TWO_WAY_MEDIA_CONN_LENGTH.BETWEEN_30S_AND_5M);
-      });
-
-    it("should call record telemetry with MORE_THAN_5M for 10m calls", function() {
-      var endTimeMS = 10 * 60 * 1000;
-
-      driver._noteConnectionLengthIfNeeded(startTimeMS, endTimeMS);
-
-      sinon.assert.calledOnce(requestStubs.TelemetryAddValue);
-      sinon.assert.calledWith(requestStubs.TelemetryAddValue,
-        "LOOP_TWO_WAY_MEDIA_CONN_LENGTH_1",
-        constants.TWO_WAY_MEDIA_CONN_LENGTH.MORE_THAN_5M);
-    });
-
-    it("should not call record telemetry if driver._sendTwoWayMediaTelemetry is false",
-      function() {
-        var endTimeMS = 10 * 60 * 1000;
-        driver._sendTwoWayMediaTelemetry = false;
-
-        driver._noteConnectionLengthIfNeeded(startTimeMS, endTimeMS);
-
-        sinon.assert.notCalled(requestStubs.TelemetryAddValue);
-      });
   });
 
   describe("#forceDisconnectAll", function() {
@@ -879,6 +714,7 @@ describe("loop.OTSdkDriver", function() {
     beforeEach(function() {
       fakeConnection = "fakeConnection";
       fakeStream = {
+        hasAudio: true,
         hasVideo: true,
         videoType: "camera",
         videoDimensions: { width: 1, height: 2 }
@@ -947,23 +783,6 @@ describe("loop.OTSdkDriver", function() {
             recvStreams: 0
           }));
       });
-
-      it("should call _noteConnectionLengthIfNeeded with connection duration", function() {
-        driver.session = session;
-        var startTime = 1;
-        var endTime = 3;
-        driver._sendTwoWayMediaTelemetry = true;
-        driver._setTwoWayMediaStartTime(startTime);
-        sandbox.stub(performance, "now").returns(endTime);
-        sandbox.stub(driver, "_noteConnectionLengthIfNeeded");
-
-        session.trigger("connectionDestroyed", {
-          reason: "clientDisconnected"
-        });
-
-        sinon.assert.calledWith(driver._noteConnectionLengthIfNeeded, startTime,
-          endTime);
-      });
     });
 
     describe("sessionDisconnected", function() {
@@ -1008,24 +827,6 @@ describe("loop.OTSdkDriver", function() {
           sinon.assert.calledWithMatch(dispatcher.dispatch,
             sinon.match.hasOwn("reason", FAILURE_DETAILS.EXPIRED_OR_INVALID));
         });
-
-      it("should call _noteConnectionLengthIfNeeded with connection duration", function() {
-        driver.session = session;
-        var startTime = 1;
-        var endTime = 3;
-        driver._sendTwoWayMediaTelemetry = true;
-        driver._setTwoWayMediaStartTime(startTime);
-        sandbox.stub(performance, "now").returns(endTime);
-        sandbox.stub(driver, "_noteConnectionLengthIfNeeded");
-
-        session.trigger("sessionDisconnected", {
-          reason: "networkDisconnected"
-        });
-
-        sinon.assert.calledWith(driver._noteConnectionLengthIfNeeded, startTime,
-          endTime);
-      });
-
     });
 
     describe("streamCreated (publisher/local)", function() {
@@ -1037,6 +838,7 @@ describe("loop.OTSdkDriver", function() {
 
         driver._mockPublisherEl.appendChild(fakeMockVideo);
         stream = {
+          hasAudio: true,
           hasVideo: true,
           videoType: "camera",
           videoDimensions: { width: 1, height: 2 }
@@ -1061,6 +863,7 @@ describe("loop.OTSdkDriver", function() {
         sinon.assert.called(dispatcher.dispatch);
         sinon.assert.calledWithExactly(dispatcher.dispatch,
           new sharedActions.MediaStreamCreated({
+            hasAudio: true,
             hasVideo: true,
             isLocal: true,
             srcMediaElement: fakeMockVideo
@@ -1074,6 +877,7 @@ describe("loop.OTSdkDriver", function() {
         sinon.assert.called(dispatcher.dispatch);
         sinon.assert.calledWithExactly(dispatcher.dispatch,
           new sharedActions.MediaStreamCreated({
+            hasAudio: true,
             hasVideo: false,
             isLocal: true,
             srcMediaElement: fakeMockVideo
@@ -1147,12 +951,14 @@ describe("loop.OTSdkDriver", function() {
           driver.session = session;
           fakeStream.connection = fakeConnection;
           fakeStream.hasVideo = true;
+          fakeStream.hasAudio = true;
 
           session.trigger("streamCreated", { stream: fakeStream });
 
           sinon.assert.called(dispatcher.dispatch);
           sinon.assert.calledWithExactly(dispatcher.dispatch,
             new sharedActions.MediaStreamCreated({
+              hasAudio: true,
               hasVideo: true,
               isLocal: false,
               srcMediaElement: videoElement
@@ -1168,6 +974,7 @@ describe("loop.OTSdkDriver", function() {
           sinon.assert.called(dispatcher.dispatch);
           sinon.assert.calledWithExactly(dispatcher.dispatch,
             new sharedActions.MediaStreamCreated({
+              hasAudio: true,
               hasVideo: false,
               isLocal: false,
               srcMediaElement: videoElement
@@ -1183,30 +990,6 @@ describe("loop.OTSdkDriver", function() {
           sinon.assert.called(dispatcher.dispatch);
           sinon.assert.calledWithMatch(dispatcher.dispatch,
             new sharedActions.MediaConnected({}));
-        });
-
-        it("should store the start time when both streams are up and" +
-        " driver._sendTwoWayMediaTelemetry is true", function() {
-          driver._sendTwoWayMediaTelemetry = true;
-          driver._publishedLocalStream = true;
-          var startTime = 1;
-          sandbox.stub(performance, "now").returns(startTime);
-
-          session.trigger("streamCreated", { stream: fakeStream });
-
-          expect(driver._getTwoWayMediaStartTime()).to.eql(startTime);
-        });
-
-        it("should not store the start time when both streams are up and" +
-           " driver._isDesktop is false", function() {
-          driver._isDesktop = false;
-          driver._publishedLocalStream = true;
-          var startTime = 73;
-          sandbox.stub(performance, "now").returns(startTime);
-
-          session.trigger("streamCreated", { stream: fakeStream });
-
-          expect(driver._getTwoWayMediaStartTime()).to.not.eql(startTime);
         });
 
         describe("Data channel setup", function() {
@@ -1886,6 +1669,56 @@ describe("loop.OTSdkDriver", function() {
           sinon.assert.calledWithExactly(dispatcher.dispatch,
             new sharedActions.ConnectionStatus({
               event: "sdk.exception." + OT.ExceptionCodes.PUBLISHER_ICE_WORKFLOW_FAILED,
+              state: "starting",
+              connections: 0,
+              sendStreams: 0,
+              recvStreams: 0
+            }));
+        });
+      });
+
+      describe("Unable to Publish", function() {
+        it("should not do anything if the message is 'GetUserMedia'", function() {
+          sdk.trigger("exception", {
+            code: OT.ExceptionCodes.UNABLE_TO_PUBLISH,
+            message: "GetUserMedia"
+          });
+
+          sinon.assert.notCalled(dispatcher.dispatch);
+        });
+
+        it("should notify metrics", function() {
+          sdk.trigger("exception", {
+            code: OT.ExceptionCodes.UNABLE_TO_PUBLISH,
+            message: "General Media Fail"
+          });
+
+          sinon.assert.calledOnce(dispatcher.dispatch);
+          sinon.assert.calledWithExactly(dispatcher.dispatch,
+            new sharedActions.ConnectionStatus({
+              event: "sdk.exception." + OT.ExceptionCodes.UNABLE_TO_PUBLISH +
+                ".General Media Fail",
+              state: "starting",
+              connections: 0,
+              sendStreams: 0,
+              recvStreams: 0
+            }));
+        });
+
+        it("should notify metrics with a special screen indication for screen shares", function() {
+          driver.screenshare = { fake: true };
+
+          sdk.trigger("exception", {
+            code: OT.ExceptionCodes.UNABLE_TO_PUBLISH,
+            message: "General Media Fail 2",
+            target: driver.screenshare
+          });
+
+          sinon.assert.calledOnce(dispatcher.dispatch);
+          sinon.assert.calledWithExactly(dispatcher.dispatch,
+            new sharedActions.ConnectionStatus({
+              event: "sdk.exception.screen." + OT.ExceptionCodes.UNABLE_TO_PUBLISH +
+                ".General Media Fail 2",
               state: "starting",
               connections: 0,
               sendStreams: 0,

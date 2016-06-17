@@ -53,16 +53,8 @@ loop.shared.views.chat = (function(mozL10n) {
         "received": this.props.type === CHAT_MESSAGE_TYPES.RECEIVED,
         "sent": this.props.type === CHAT_MESSAGE_TYPES.SENT,
         "special": this.props.type === CHAT_MESSAGE_TYPES.SPECIAL,
-        "room-name": this.props.contentType === CHAT_CONTENT_TYPES.ROOM_NAME,
         "text-chat-notif": this.props.contentType === CHAT_CONTENT_TYPES.NOTIFICATION
       });
-
-      var optionalProps = {};
-      if (loop.shared.utils.isDesktop()) {
-        optionalProps.linkClickHandler = function(url) {
-          loop.request("OpenURL", url);
-        };
-      }
 
       if (this.props.contentType === CHAT_CONTENT_TYPES.CONTEXT_TILE) {
         return (
@@ -82,7 +74,12 @@ loop.shared.views.chat = (function(mozL10n) {
         return (
           <div className={classes}>
             <div className="content-wrapper">
-              <img className="notification-icon" src="shared/img/leave_notification.svg" />
+              <img className="notification-icon"
+                   src={this.props.extraData &&
+                        this.props.extraData.peerStatus === "connected" ?
+                          "shared/img/join_notification.svg" :
+                          "shared/img/leave_notification.svg"
+                   } />
               <p>{mozL10n.get(this.props.message)}</p>
             </div>
             {this.props.showTimestamp ? this._renderTimestamp() : null}
@@ -90,9 +87,17 @@ loop.shared.views.chat = (function(mozL10n) {
         );
       }
 
+      var linkClickHandler;
+      if (loop.shared.utils.isDesktop()) {
+        linkClickHandler = function(url) {
+          loop.request("OpenURL", url);
+        };
+      }
+
       return (
         <div className={classes}>
-          <sharedViews.LinkifiedTextView {...optionalProps}
+          <sharedViews.LinkifiedTextView
+            linkClickHandler={linkClickHandler}
             rawText={this.props.message} />
           <span className="text-chat-arrow" />
           {this.props.showTimestamp ? this._renderTimestamp() : null}
@@ -101,17 +106,17 @@ loop.shared.views.chat = (function(mozL10n) {
     }
   });
 
-  var TextChatRoomName = React.createClass({
+  var TextChatHeader = React.createClass({
     mixins: [React.addons.PureRenderMixin],
 
     propTypes: {
-      message: React.PropTypes.string.isRequired
+      chatHeaderName: React.PropTypes.string.isRequired
     },
 
     render: function() {
       return (
-        <div className="text-chat-header special room-name">
-          <p>{mozL10n.get("rooms_welcome_title", { conversationName: this.props.message })}</p>
+        <div className="text-chat-header special">
+          <p>{mozL10n.get("room_you_have_joined_title", { chatHeaderName: this.props.chatHeaderName })}</p>
         </div>
       );
     }
@@ -135,6 +140,7 @@ loop.shared.views.chat = (function(mozL10n) {
     propTypes: {
       dispatcher: React.PropTypes.instanceOf(loop.Dispatcher).isRequired,
       messageList: React.PropTypes.arrayOf(React.PropTypes.object).isRequired,
+      roomName: React.PropTypes.string,
       showInitialContext: React.PropTypes.bool.isRequired
     },
 
@@ -146,13 +152,12 @@ loop.shared.views.chat = (function(mozL10n) {
 
     _hasChatMessages: function() {
       return this.props.messageList.some(function(message) {
-        return message.contentType !== CHAT_CONTENT_TYPES.ROOM_NAME &&
-          message.contentType !== CHAT_CONTENT_TYPES.CONTEXT;
+        return message.contentType !== CHAT_CONTENT_TYPES.CONTEXT;
       });
     },
 
     componentWillUpdate: function() {
-      var node = this.getDOMNode();
+      var node = ReactDOM.findDOMNode(this);
       if (!node) {
         return;
       }
@@ -181,7 +186,7 @@ loop.shared.views.chat = (function(mozL10n) {
         // This ensures the paint is complete.
         window.requestAnimationFrame(function() {
           try {
-            var node = this.getDOMNode();
+            var node = ReactDOM.findDOMNode(this);
             node.scrollTop = node.scrollHeight - node.clientHeight;
           } catch (ex) {
             console.error("TextChatEntriesView.componentDidUpdate exception", ex);
@@ -195,23 +200,28 @@ loop.shared.views.chat = (function(mozL10n) {
       var lastTimestamp = 0;
 
       var entriesClasses = classNames({
-        "text-chat-entries": true
+        "text-chat-entries": true,
+        // Added for testability
+        "custom-room-name": this.props.roomName && this.props.roomName.length > 0
       });
+
+      var headerName = this.props.roomName || mozL10n.get("clientShortname2");
 
       return (
         <div className={entriesClasses}>
           <div className="text-chat-scroller">
             {
+              loop.shared.utils.isDesktop() ? null :
+                <TextChatHeader chatHeaderName={headerName} />
+            }
+            {
               this.props.messageList.map(function(entry, i) {
                 if (entry.type === CHAT_MESSAGE_TYPES.SPECIAL) {
-                  if (!this.props.showInitialContext) { return null; }
+                  if (!this.props.showInitialContext) {
+                    return null;
+                  }
+
                   switch (entry.contentType) {
-                    case CHAT_CONTENT_TYPES.ROOM_NAME:
-                      return (
-                        <TextChatRoomName
-                          key={i}
-                          message={entry.message} />
-                      );
                     case CHAT_CONTENT_TYPES.CONTEXT:
                       return (
                         <div className="context-url-view-wrapper" key={i}>
@@ -313,7 +323,6 @@ loop.shared.views.chat = (function(mozL10n) {
    */
   var TextChatInputView = React.createClass({
     mixins: [
-      React.addons.LinkedStateMixin,
       React.addons.PureRenderMixin
     ],
 
@@ -327,6 +336,10 @@ loop.shared.views.chat = (function(mozL10n) {
       return {
         messageDetail: ""
       };
+    },
+
+    handleChange: function(event) {
+      this.setState({ messageDetail: event.target.value });
     },
 
     /**
@@ -373,10 +386,11 @@ loop.shared.views.chat = (function(mozL10n) {
         <div className="text-chat-box">
           <form onSubmit={this.handleFormSubmit}>
             <input
+              onChange={this.handleChange}
               onKeyDown={this.handleKeyDown}
               placeholder={this.props.showPlaceholder ? mozL10n.get("chat_textbox_placeholder") : ""}
               type="text"
-              valueLink={this.linkState("messageDetail")} />
+              value={this.state.messageDetail} />
           </form>
         </div>
       );
@@ -393,7 +407,6 @@ loop.shared.views.chat = (function(mozL10n) {
    */
   var TextChatView = React.createClass({
     mixins: [
-      React.addons.LinkedStateMixin,
       loop.store.StoreMixin("textChatStore")
     ],
 
@@ -415,8 +428,7 @@ loop.shared.views.chat = (function(mozL10n) {
       if (!this.props.showInitialContext) {
         messageList = messageList.filter(function(item) {
           return item.type !== CHAT_MESSAGE_TYPES.SPECIAL ||
-            (item.contentType !== CHAT_CONTENT_TYPES.ROOM_NAME &&
-             item.contentType !== CHAT_CONTENT_TYPES.CONTEXT);
+             item.contentType !== CHAT_CONTENT_TYPES.CONTEXT;
         });
       }
 
@@ -436,6 +448,7 @@ loop.shared.views.chat = (function(mozL10n) {
           <TextChatEntriesView
             dispatcher={this.props.dispatcher}
             messageList={messageList}
+            roomName={this.state.roomName}
             showInitialContext={this.props.showInitialContext} />
           <TextChatInputView
             dispatcher={this.props.dispatcher}

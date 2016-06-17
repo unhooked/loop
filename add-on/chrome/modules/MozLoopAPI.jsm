@@ -84,44 +84,13 @@ const getObjectAPIFunctionName = function(action) {
 };
 
 /**
- * Retrieves a list of Social Providers from the Social API that are explicitly
- * capable of sharing URLs.
- * It also adds a listener that is fired whenever a new Provider is added or
- * removed.
- *
- * @return {Array} Sorted list of share-capable Social Providers.
+ *  Checks that [browser.js]'s global variable `gMultiProcessBrowser` is active,
+ *  instead of checking on first available browser element.
+ *  :see bug 1257243 comment 5:
  */
-const updateSocialProvidersCache = function() {
-  let providers = [];
-
-  for (let provider of Social.providers) {
-    if (!provider.shareURL) {
-      continue;
-    }
-
-    // Only pass the relevant data on to content.
-    providers.push({
-      iconURL: provider.iconURL,
-      name: provider.name,
-      origin: provider.origin
-    });
-  }
-
-  let providersWasSet = !!gSocialProviders;
-  // Replace old with new.
-  gSocialProviders = providers.sort((a, b) =>
-    a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-
-  // Start listening for changes in the social provider list, if we're not
-  // doing that yet.
-  if (!providersWasSet) {
-    Services.obs.addObserver(updateSocialProvidersCache, "social:providers-changed", false);
-  } else {
-    // Dispatch an event to content to let stores freshen-up.
-    LoopAPIInternal.broadcastPushMessage("SocialProvidersChanged");
-  }
-
-  return gSocialProviders;
+const isMultiProcessActive = function() {
+  let win = Services.wm.getMostRecentWindow("navigator:browser");
+  return !!win.gMultiProcessBrowser;
 };
 
 var gAppVersionInfo = null;
@@ -129,7 +98,6 @@ var gBrowserSharingListeners = new Set();
 var gBrowserSharingWindows = new Set();
 var gPageListeners = null;
 var gOriginalPageListeners = null;
-var gSocialProviders = null;
 var gStringBundle = null;
 var gStubbedMessageHandlers = null;
 const kBatchMessage = "Batch";
@@ -160,7 +128,7 @@ const kMessageHandlers = {
    * @param {Object}   message Message meant for the handler function, containing
    *                           the following parameters in its `data` property:
    *                           [
-   *                             {Number} windowId The window ID of the chat window
+   *                             {String} roomToken The room ID to start browser sharing and listeners.
    *                           ]
    * @param {Function} reply   Callback function, invoked with the result of this
    *                           message handler. The result will be sent back to
@@ -187,9 +155,11 @@ const kMessageHandlers = {
       return;
     }
 
+    // get room token from message
     let [windowId] = message.data;
-
-    win.LoopUI.startBrowserSharing();
+    // For rooms, the windowId === roomToken. If we change the type of place we're
+    // sharing from in the future, we may need to change this.
+    win.LoopUI.startBrowserSharing(windowId);
 
     // Point new tab to load about:home to avoid accidentally sharing top sites.
     NewTabURL.override("about:home");
@@ -262,27 +232,6 @@ const kMessageHandlers = {
       sessionId: sessionId,
       callId: callid
     });
-    reply();
-  },
-
-  /**
-   * Activates the Social Share panel with the Social Provider panel opened
-   * when the popup open.
-   *
-   * @param {Object}   message Message meant for the handler function, containing
-   *                           the following parameters in its `data` property:
-   *                           [ ]
-   * @param {Function} reply   Callback function, invoked with the result of this
-   *                           message handler. The result will be sent back to
-   *                           the senders' channel.
-   */
-  AddSocialShareProvider: function(message, reply) {
-    let win = Services.wm.getMostRecentWindow("navigator:browser");
-    if (!win || !win.SocialShare) {
-      reply();
-      return;
-    }
-    win.SocialShare.showDirectory(win.LoopUI.toolbarButton.anchor);
     reply();
   },
 
@@ -422,13 +371,11 @@ const kMessageHandlers = {
    */
   GetAllConstants: function(message, reply) {
     reply({
+      COPY_PANEL: COPY_PANEL,
       LOOP_SESSION_TYPE: LOOP_SESSION_TYPE,
       LOOP_MAU_TYPE: LOOP_MAU_TYPE,
       ROOM_CREATE: ROOM_CREATE,
-      ROOM_DELETE: ROOM_DELETE,
-      SHARING_ROOM_URL: SHARING_ROOM_URL,
-      SHARING_SCREEN: SHARING_SCREEN,
-      TWO_WAY_MEDIA_CONN_LENGTH: TWO_WAY_MEDIA_CONN_LENGTH
+      SHARING_ROOM_URL: SHARING_ROOM_URL
     });
   },
 
@@ -587,6 +534,22 @@ const kMessageHandlers = {
   GetLocale: function(message, reply) {
     reply(MozLoopService.locale);
   },
+
+  /**
+   * Returns the version number for the addon.
+   *
+   * @param {Object}   message Message meant for the handler function, containing
+   *                           the following parameters in its `data` property:
+   *                           [ ]
+   * @param {Function} reply   Callback function, invoked with the result of this
+   *                           message handler. The result will be sent back to
+   *                           the senders' channel.
+   * @returns {String} Addon Version string.
+   */
+  GetAddonVersion: function(message, reply) {
+    reply(MozLoopService.addonVersion);
+  },
+
   /**
    * Return any preference under "loop.".
    * Any errors thrown by the Mozilla pref API are logged to the console
@@ -638,8 +601,23 @@ const kMessageHandlers = {
    */
   GetSelectedTabMetadata: function(message, reply) {
     let win = Services.wm.getMostRecentWindow("navigator:browser");
-    win.messageManager.addMessageListener("PageMetadata:PageDataResult", function onPageDataResult(msg) {
-      win.messageManager.removeMessageListener("PageMetadata:PageDataResult", onPageDataResult);
+    let browser = win && win.gBrowser.selectedBrowser;
+    if (!win || !browser) {
+      MozLoopService.log.error("Error occurred whilst fetching page metadata");
+      reply();
+      return;
+    }
+
+    // non-remote pages have no metadata
+    if (!browser.getAttribute("remote") === "true") {
+      reply(null);
+    }
+
+    win.messageManager.addMessageListener("PageMetadata:PageDataResult",
+                                          function onPageDataResult(msg) {
+
+      win.messageManager.removeMessageListener("PageMetadata:PageDataResult",
+                                               onPageDataResult);
       let pageData = msg.json;
       win.LoopUI.getFavicon(function(err, favicon) {
         if (err && err !== "favicon not found for uri") {
@@ -653,25 +631,6 @@ const kMessageHandlers = {
       });
     });
     win.gBrowser.selectedBrowser.messageManager.sendAsyncMessage("PageMetadata:GetPageData");
-  },
-
-  /**
-   * Returns a sorted list of Social Providers that can share URLs. See
-   * `updateSocialProvidersCache()` for more information.
-   *
-   * @param {Object}   message Message meant for the handler function, containing
-   *                           the following parameters in its `data` property:
-   *                           [ ]
-   * @param {Function} reply   Callback function, invoked with the result of this
-   *                           message handler. The result will be sent back to
-   *                           the senders' channel.
-   * @return {Array} Sorted list of share-capable Social Providers.
-   */
-  GetSocialShareProviders: function(message, reply) {
-    if (!gSocialProviders) {
-      updateSocialProvidersCache();
-    }
-    reply(gSocialProviders);
   },
 
   /**
@@ -754,9 +713,31 @@ const kMessageHandlers = {
    *                           the senders' channel.
    */
   IsMultiProcessActive: function(message, reply) {
+    reply(isMultiProcessActive());
+  },
+
+  /**
+   *  Checks that the current tab can be shared.
+   *  Non-shareable tabs are the non-remote ones when e10s is enabled.
+   *
+   *  @param {Object}   message Message meant for the handler function,
+   *                            with no data attached.
+   *  @param {Function} reply   Callback function, invoked with the result of
+   *                            the check. The result will be sent back to
+   *                            the senders' channel.
+   */
+  IsTabShareable: function(message, reply) {
     let win = Services.wm.getMostRecentWindow("navigator:browser");
     let browser = win && win.gBrowser.selectedBrowser;
-    reply(!!(browser && browser.getAttribute("remote") == "true"));
+    if (!win || !browser) {
+      reply(false);
+      return;
+    }
+
+    let e10sActive = isMultiProcessActive();
+    let tabRemote = browser.getAttribute("remote") === "true";
+
+    reply(!e10sActive || (e10sActive && tabRemote));
   },
 
   /**
@@ -986,6 +967,23 @@ const kMessageHandlers = {
   },
 
   /**
+   * Called when a closing room has just been created, so user can change
+   * the name of the room to be stored.
+   *
+   * @param {Object}   message Message meant for the handler function, shouldn't
+                               contain any data.
+   * @param {Function} reply   Callback function, invoked with the result of this
+   *                           message handler. The result will be sent back to
+   *                           the senders' channel.
+   */
+  SetNameNewRoom: function(message, reply) {
+    let win = Services.wm.getMostRecentWindow("navigator:browser");
+    win && win.LoopUI.renameRoom();
+
+    reply();
+  },
+
+  /**
    * Used to record the screen sharing state for a window so that it can
    * be reflected on the toolbar button.
    *
@@ -1004,42 +1002,6 @@ const kMessageHandlers = {
   SetScreenShareState: function(message, reply) {
     let [windowId, active] = message.data;
     MozLoopService.setScreenShareState(windowId, active);
-    reply();
-  },
-
-  /**
-   * Share a room URL with the Social API.
-   *
-   * @param {Object}   message Message meant for the handler function, containing
-   *                           the following parameters in its `data` property:
-   *                           [
-   *                             {String} providerOrigin URL fragment that identifies
-   *                                                     a social provider
-   *                             {String} roomURL        URL of a room
-   *                             {String} title          Title of the sharing message
-   *                             {String} body           Body of the sharing message
-   *                           ]
-   * @param {Function} reply   Callback function, invoked with the result of this
-   *                           message handler. The result will be sent back to
-   *                           the senders' channel.
-   */
-  SocialShareRoom: function(message, reply) {
-    let win = Services.wm.getMostRecentWindow("navigator:browser");
-    if (!win || !win.SocialShare) {
-      reply();
-      return;
-    }
-
-    let [providerOrigin, roomURL, title, body] = message.data;
-    let graphData = {
-      url: roomURL,
-      title: title
-    };
-    if (body) {
-      graphData.body = body;
-    }
-    win.SocialShare.sharePage(providerOrigin, graphData, null,
-      win.LoopUI.toolbarButton.anchor);
     reply();
   },
 
@@ -1334,10 +1296,6 @@ const LoopAPIInternal = {
 
     // Unsubscribe from global events.
     Services.obs.removeObserver(this.handleStatusChanged, "loop-status-changed");
-    // Stop listening for changes in the social provider list, if necessary.
-    if (gSocialProviders) {
-      Services.obs.removeObserver(updateSocialProvidersCache, "social:providers-changed");
-    }
   }
 };
 

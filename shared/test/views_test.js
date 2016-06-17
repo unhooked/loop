@@ -9,7 +9,6 @@ describe("loop.shared.views", function() {
   var l10n = navigator.mozL10n || document.mozL10n;
   var TestUtils = React.addons.TestUtils;
   var sharedActions = loop.shared.actions;
-  var sharedModels = loop.shared.models;
   var sharedViews = loop.shared.views;
   var sandbox, clock, dispatcher, OS, OSVersion;
 
@@ -58,7 +57,7 @@ describe("loop.shared.views", function() {
           muted: false
         }));
 
-      expect(comp.getDOMNode().classList.contains("muted")).eql(false);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("muted")).eql(false);
     });
 
     it("should render a muted local audio button", function() {
@@ -70,7 +69,7 @@ describe("loop.shared.views", function() {
           muted: true
         }));
 
-      expect(comp.getDOMNode().classList.contains("muted")).eql(true);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("muted")).eql(true);
     });
 
     it("should render an enabled local video button", function() {
@@ -82,7 +81,7 @@ describe("loop.shared.views", function() {
           muted: false
         }));
 
-      expect(comp.getDOMNode().classList.contains("muted")).eql(false);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("muted")).eql(false);
     });
 
     it("should render a muted local video button", function() {
@@ -94,7 +93,35 @@ describe("loop.shared.views", function() {
           muted: true
         }));
 
-      expect(comp.getDOMNode().classList.contains("muted")).eql(true);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("muted")).eql(true);
+    });
+
+    it("should render a muted and disabled local video button", function() {
+      var comp = TestUtils.renderIntoDocument(
+        React.createElement(sharedViews.MediaControlButton, {
+          scope: "local",
+          type: "video",
+          action: function() {},
+          disabled: true,
+          muted: true
+        }));
+
+      expect(ReactDOM.findDOMNode(comp).classList.contains("muted")).eql(true);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("disabled")).eql(true);
+    });
+
+    it("should render a muted local audio button", function() {
+      var comp = TestUtils.renderIntoDocument(
+        React.createElement(sharedViews.MediaControlButton, {
+          scope: "local",
+          type: "audio",
+          action: function() {},
+          disabled: true,
+          muted: true
+        }));
+
+      expect(ReactDOM.findDOMNode(comp).classList.contains("muted")).eql(true);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("disabled")).eql(true);
     });
   });
 
@@ -105,7 +132,7 @@ describe("loop.shared.views", function() {
           muted: true
         }));
 
-      var node = comp.getDOMNode();
+      var node = ReactDOM.findDOMNode(comp);
       expect(node.classList.contains("muted")).eql(true);
     });
 
@@ -115,7 +142,7 @@ describe("loop.shared.views", function() {
           muted: false
         }));
 
-      var node = comp.getDOMNode();
+      var node = ReactDOM.findDOMNode(comp);
       expect(node.classList.contains("muted")).eql(false);
     });
 
@@ -127,7 +154,7 @@ describe("loop.shared.views", function() {
             muted: false
           }));
 
-        TestUtils.Simulate.click(comp.getDOMNode());
+        TestUtils.Simulate.click(ReactDOM.findDOMNode(comp));
 
         sinon.assert.calledOnce(dispatcher.dispatch);
         sinon.assert.calledWithExactly(dispatcher.dispatch,
@@ -143,7 +170,7 @@ describe("loop.shared.views", function() {
             muted: true
           }));
 
-        TestUtils.Simulate.click(comp.getDOMNode());
+        TestUtils.Simulate.click(ReactDOM.findDOMNode(comp));
 
         sinon.assert.calledOnce(dispatcher.dispatch);
         sinon.assert.calledWithExactly(dispatcher.dispatch,
@@ -159,7 +186,7 @@ describe("loop.shared.views", function() {
           muted: true
         }));
 
-      var node = comp.getDOMNode();
+      var node = ReactDOM.findDOMNode(comp);
       expect(node.classList.contains("muted")).eql(true);
     });
 
@@ -169,7 +196,7 @@ describe("loop.shared.views", function() {
           muted: false
         }));
 
-      var node = comp.getDOMNode();
+      var node = ReactDOM.findDOMNode(comp);
       expect(node.classList.contains("muted")).eql(false);
     });
 
@@ -181,7 +208,7 @@ describe("loop.shared.views", function() {
             muted: false
           }));
 
-        TestUtils.Simulate.click(comp.getDOMNode());
+        TestUtils.Simulate.click(ReactDOM.findDOMNode(comp));
 
         sinon.assert.calledOnce(dispatcher.dispatch);
         sinon.assert.calledWithExactly(dispatcher.dispatch,
@@ -197,7 +224,7 @@ describe("loop.shared.views", function() {
             muted: true
           }));
 
-        TestUtils.Simulate.click(comp.getDOMNode());
+        TestUtils.Simulate.click(ReactDOM.findDOMNode(comp));
 
         sinon.assert.calledOnce(dispatcher.dispatch);
         sinon.assert.calledWithExactly(dispatcher.dispatch,
@@ -226,7 +253,7 @@ describe("loop.shared.views", function() {
         hangupButtonLabel: "foo",
         hangup: hangup
       });
-      expect(comp.getDOMNode().classList.contains("idle")).eql(false);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("idle")).eql(false);
     });
 
     it("should be on idle state after 6 seconds", function() {
@@ -234,10 +261,10 @@ describe("loop.shared.views", function() {
         hangupButtonLabel: "foo",
         hangup: hangup
       });
-      expect(comp.getDOMNode().classList.contains("idle")).eql(false);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("idle")).eql(false);
 
       clock.tick(6001);
-      expect(comp.getDOMNode().classList.contains("idle")).eql(true);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("idle")).eql(true);
     });
 
     it("should remove idle state when the user moves the mouse", function() {
@@ -247,11 +274,11 @@ describe("loop.shared.views", function() {
       });
 
       clock.tick(6001);
-      expect(comp.getDOMNode().classList.contains("idle")).eql(true);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("idle")).eql(true);
 
       document.body.dispatchEvent(new CustomEvent("mousemove"));
 
-      expect(comp.getDOMNode().classList.contains("idle")).eql(false);
+      expect(ReactDOM.findDOMNode(comp).classList.contains("idle")).eql(false);
     });
 
     it("should accept a showHangup optional prop", function() {
@@ -260,7 +287,7 @@ describe("loop.shared.views", function() {
         hangup: hangup
       });
 
-      expect(comp.getDOMNode().querySelector(".btn-hangup-entry")).to.eql(null);
+      expect(ReactDOM.findDOMNode(comp).querySelector(".btn-hangup-entry")).to.eql(null);
     });
 
     it("should hangup when hangup button is clicked", function() {
@@ -270,56 +297,10 @@ describe("loop.shared.views", function() {
       });
 
       TestUtils.Simulate.click(
-        comp.getDOMNode().querySelector(".btn-hangup"));
+        ReactDOM.findDOMNode(comp).querySelector(".btn-hangup"));
 
       sinon.assert.calledOnce(hangup);
       sinon.assert.calledWithExactly(hangup);
-    });
-  });
-
-  describe("NotificationListView", function() {
-    var coll, view, testNotif;
-
-    function mountTestComponent(props) {
-      props = _.extend({
-        key: 0
-      }, props || {});
-      return TestUtils.renderIntoDocument(
-        React.createElement(sharedViews.NotificationListView, props));
-    }
-
-    beforeEach(function() {
-      coll = new sharedModels.NotificationCollection();
-      view = mountTestComponent({ notifications: coll });
-      testNotif = { level: "warning", message: "foo" };
-      sinon.spy(view, "render");
-    });
-
-    afterEach(function() {
-      view.render.restore();
-    });
-
-    describe("Collection events", function() {
-      it("should render when a notification is added to the collection",
-        function() {
-          coll.add(testNotif);
-
-          sinon.assert.calledOnce(view.render);
-        });
-
-      it("should render when a notification is removed from the collection",
-        function() {
-          coll.add(testNotif);
-          coll.remove(testNotif);
-
-          sinon.assert.calledOnce(view.render);
-        });
-
-      it("should render when the collection is reset", function() {
-        coll.reset();
-
-        sinon.assert.calledOnce(view.render);
-      });
     });
   });
 
@@ -340,7 +321,7 @@ describe("loop.shared.views", function() {
       it("should render a checkbox with only required props supplied", function() {
         view = mountTestComponent();
 
-        var node = view.getDOMNode();
+        var node = ReactDOM.findDOMNode(view);
         expect(node).to.not.eql(null);
         expect(node.classList.contains("checkbox-wrapper")).to.eql(true);
         expect(node.hasAttribute("disabled")).to.eql(false);
@@ -350,7 +331,7 @@ describe("loop.shared.views", function() {
       it("should render a label when it's supplied", function() {
         view = mountTestComponent({ label: "Some label" });
 
-        var node = view.getDOMNode();
+        var node = ReactDOM.findDOMNode(view);
         expect(node.lastChild.localName).to.eql("div");
         expect(node.lastChild.textContent).to.eql("Some label");
       });
@@ -360,7 +341,7 @@ describe("loop.shared.views", function() {
           disabled: true
         });
 
-        var node = view.getDOMNode();
+        var node = ReactDOM.findDOMNode(view);
         expect(node.classList.contains("disabled")).to.eql(true);
         expect(node.hasAttribute("disabled")).to.eql(true);
       });
@@ -370,18 +351,16 @@ describe("loop.shared.views", function() {
           checked: true
         });
 
-        var checkbox = view.getDOMNode().querySelector(".checkbox");
+        var checkbox = ReactDOM.findDOMNode(view).querySelector(".checkbox");
         expect(checkbox.classList.contains("checked")).eql(true);
       });
 
-      it("should alter the render state when the props are changed", function() {
+      it("should not render the checkbox as checked when the prop is not set", function() {
         view = mountTestComponent({
-          checked: true
+          checked: false
         });
 
-        view.setProps({ checked: false });
-
-        var checkbox = view.getDOMNode().querySelector(".checkbox");
+        var checkbox = ReactDOM.findDOMNode(view).querySelector(".checkbox");
         expect(checkbox.classList.contains("checked")).eql(false);
       });
 
@@ -391,7 +370,7 @@ describe("loop.shared.views", function() {
           useEllipsis: true
         });
 
-        var label = view.getDOMNode().querySelector(".checkbox-label");
+        var label = ReactDOM.findDOMNode(view).querySelector(".checkbox-label");
         expect(label.classList.contains("ellipsis")).eql(true);
       });
 
@@ -401,7 +380,7 @@ describe("loop.shared.views", function() {
           useEllipsis: false
         });
 
-        var label = view.getDOMNode().querySelector(".checkbox-label");
+        var label = ReactDOM.findDOMNode(view).querySelector(".checkbox-label");
         expect(label.classList.contains("ellipsis")).eql(false);
       });
     });
@@ -422,7 +401,7 @@ describe("loop.shared.views", function() {
 
         expect(view.state.checked).to.eql(false);
 
-        var node = view.getDOMNode();
+        var node = ReactDOM.findDOMNode(view);
         TestUtils.Simulate.click(node);
 
         expect(view.state.checked).to.eql(true);
@@ -441,7 +420,7 @@ describe("loop.shared.views", function() {
 
         expect(view.state.value).to.eql("");
 
-        var node = view.getDOMNode();
+        var node = ReactDOM.findDOMNode(view);
         TestUtils.Simulate.click(node);
 
         expect(view.state.value).to.eql("some-value");
@@ -451,6 +430,30 @@ describe("loop.shared.views", function() {
           value: "some-value"
         });
       });
+    });
+  });
+  describe("ContextUrlLink", function() {
+    var view;
+
+    function mountTestComponent(extraProps) {
+      var props = _.extend({
+        allowClick: true,
+        description: "test",
+        url: "http://example.com"
+      }, extraProps);
+      return TestUtils.renderIntoDocument(
+        React.createElement(sharedViews.ContextUrlLink, props));
+    }
+
+    it("should not have any children if none are passed", function() {
+      view = mountTestComponent({
+        allowClick: true,
+        url: "http://wonderful.invalid"
+      });
+
+      var contextHasChildren = ReactDOM.findDOMNode(view).childNodes.length;
+
+      expect(contextHasChildren).eql(0);
     });
   });
 
@@ -474,8 +477,7 @@ describe("loop.shared.views", function() {
         url: "http://wonderful.invalid"
       });
 
-      var wrapper = view.getDOMNode().querySelector(".context-wrapper");
-
+      var wrapper = ReactDOM.findDOMNode(view).querySelector(".context-wrapper");
       expect(wrapper.classList.contains("clicks-allowed")).eql(true);
     });
 
@@ -485,34 +487,50 @@ describe("loop.shared.views", function() {
         url: "http://wonderful.invalid"
       });
 
-      var wrapper = view.getDOMNode().querySelector(".context-wrapper");
+      var wrapper = ReactDOM.findDOMNode(view).querySelector(".context-wrapper");
 
       expect(wrapper.classList.contains("clicks-allowed")).eql(false);
     });
 
+    it("should allow context to be clickable if the url is valid", function() {
+      view = mountTestComponent({
+        allowClick: true,
+        url: "http://example.com/"
+      });
+
+      expect(ReactDOM.findDOMNode(view).querySelector(".context-wrapper").getAttribute("href"))
+        .eql("http://example.com/");
+    });
+
     it("should display nothing if the url is invalid", function() {
       view = mountTestComponent({
+        allowClick: true,
         url: "fjrTykyw"
       });
 
-      expect(view.getDOMNode()).eql(null);
+      expect(ReactDOM.findDOMNode(view).querySelector(".context-wrapper").getAttribute("href"))
+        .eql(null);
     });
 
     it("should display nothing if it is an about url", function() {
       view = mountTestComponent({
+        allowClick: true,
         url: "about:config"
       });
 
-      expect(view.getDOMNode()).eql(null);
+      expect(ReactDOM.findDOMNode(view).querySelector(".context-wrapper").getAttribute("href"))
+        .eql(null);
     });
 
     it("should display nothing if it is a javascript url", function() {
       /* eslint-disable no-script-url */
       view = mountTestComponent({
+        allowClick: true,
         url: "javascript:alert('hello')"
       });
 
-      expect(view.getDOMNode()).eql(null);
+      expect(ReactDOM.findDOMNode(view).querySelector(".context-wrapper").getAttribute("href"))
+        .eql(null);
       /* eslint-enable no-script-url */
     });
 
@@ -521,7 +539,7 @@ describe("loop.shared.views", function() {
         url: "http://wonderful.invalid"
       });
 
-      expect(view.getDOMNode().querySelector(".context-preview").getAttribute("src"))
+      expect(ReactDOM.findDOMNode(view).querySelector(".context-preview").getAttribute("src"))
         .eql("shared/img/icons-16x16.svg#globe");
     });
 
@@ -530,7 +548,7 @@ describe("loop.shared.views", function() {
         url: "http://wonderful.invalid"
       });
 
-      expect(view.getDOMNode().querySelector(".context-preview").getAttribute("src"))
+      expect(ReactDOM.findDOMNode(view).querySelector(".context-preview").getAttribute("src"))
         .eql("shared/img/icons-16x16.svg#globe");
     });
 
@@ -539,7 +557,7 @@ describe("loop.shared.views", function() {
         url: "http://wonderful.invalid"
       });
 
-      expect(view.getDOMNode().querySelector(".context-content > p")).eql(null);
+      expect(ReactDOM.findDOMNode(view).querySelector(".context-content > p")).eql(null);
     });
 
     it("should set the href on the link if clicks are allowed", function() {
@@ -548,7 +566,7 @@ describe("loop.shared.views", function() {
         url: "http://wonderful.invalid"
       });
 
-      expect(view.getDOMNode().querySelector(".context-wrapper").href)
+      expect(ReactDOM.findDOMNode(view).querySelector(".context-wrapper").href)
         .eql("http://wonderful.invalid/");
     });
 
@@ -558,7 +576,7 @@ describe("loop.shared.views", function() {
         url: "http://wonderful.invalid"
       });
 
-      var linkNode = view.getDOMNode().querySelector(".context-wrapper");
+      var linkNode = ReactDOM.findDOMNode(view).querySelector(".context-wrapper");
 
       TestUtils.Simulate.click(linkNode);
 
@@ -575,7 +593,7 @@ describe("loop.shared.views", function() {
         url: "http://wonderful.invalid"
       });
 
-      var linkNode = view.getDOMNode().querySelector(".context-wrapper");
+      var linkNode = ReactDOM.findDOMNode(view).querySelector(".context-wrapper");
 
       TestUtils.Simulate.click(linkNode);
 
@@ -618,7 +636,7 @@ describe("loop.shared.views", function() {
         mediaType: "local"
       });
 
-      var element = view.getDOMNode();
+      var element = ReactDOM.findDOMNode(view);
 
       expect(element.className).eql("no-video");
     });
@@ -634,7 +652,7 @@ describe("loop.shared.views", function() {
         }
       });
 
-      var element = view.getDOMNode().querySelector("video");
+      var element = ReactDOM.findDOMNode(view).querySelector("video");
 
       expect(element).not.eql(null);
       expect(element.className).eql("local-video");
@@ -690,7 +708,7 @@ describe("loop.shared.views", function() {
       });
 
       it("should not throw if the element is not a video object", function() {
-        sinon.stub(view, "getDOMNode").returns({
+        sandbox.stub(ReactDOM, "findDOMNode").returns({
           tagName: "DIV",
           querySelector: function() {
             return {
@@ -708,7 +726,7 @@ describe("loop.shared.views", function() {
       it("should attach a video object according to the standard", function() {
         fakeVideoElement.srcObject = null;
 
-        sinon.stub(view, "getDOMNode").returns(fakeViewElement);
+        sandbox.stub(ReactDOM, "findDOMNode").returns(fakeViewElement);
 
         view.attachVideo({
           srcObject: { fake: 1 }
@@ -719,7 +737,7 @@ describe("loop.shared.views", function() {
 
       it("should attach events to the video", function() {
         fakeVideoElement.srcObject = null;
-        sinon.stub(view, "getDOMNode").returns(fakeViewElement);
+        sandbox.stub(ReactDOM, "findDOMNode").returns(fakeViewElement);
         view.attachVideo({
           src: { fake: 1 }
         });
@@ -733,7 +751,7 @@ describe("loop.shared.views", function() {
       it("should attach a video object for Firefox", function() {
         fakeVideoElement.mozSrcObject = null;
 
-        sinon.stub(view, "getDOMNode").returns(fakeViewElement);
+        sandbox.stub(ReactDOM, "findDOMNode").returns(fakeViewElement);
 
         view.attachVideo({
           mozSrcObject: { fake: 2 }
@@ -745,7 +763,7 @@ describe("loop.shared.views", function() {
       it("should attach a video object for Chrome", function() {
         fakeVideoElement.src = null;
 
-        sinon.stub(view, "getDOMNode").returns(fakeViewElement);
+        sandbox.stub(ReactDOM, "findDOMNode").returns(fakeViewElement);
 
         view.attachVideo({
           src: { fake: 2 }
@@ -782,7 +800,7 @@ describe("loop.shared.views", function() {
           }
         });
 
-        sinon.stub(view, "getDOMNode").returns(fakeViewElement);
+        sandbox.stub(ReactDOM, "findDOMNode").returns(fakeViewElement);
       });
 
       it("should save the video size", function() {
@@ -831,6 +849,7 @@ describe("loop.shared.views", function() {
         matchMedia: window.matchMedia,
         renderRemoteVideo: false,
         showInitialContext: false,
+        showMediaWait: false,
         showTile: false
       };
 
@@ -864,7 +883,7 @@ describe("loop.shared.views", function() {
         displayScreenShare: false
       });
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
 
       expect(node.querySelector(".remote").classList.contains("focus-stream")).eql(true);
       expect(node.querySelector(".screen").classList.contains("focus-stream")).eql(false);
@@ -875,7 +894,7 @@ describe("loop.shared.views", function() {
         displayScreenShare: true
       });
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
 
       expect(node.querySelector(".remote").classList.contains("focus-stream")).eql(false);
       expect(node.querySelector(".screen").classList.contains("focus-stream")).eql(true);
@@ -886,7 +905,7 @@ describe("loop.shared.views", function() {
         screenSharingPaused: true
       });
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
 
       expect(node.querySelector(".screen").classList.contains("screen-sharing-paused")).eql(true);
     });
@@ -896,7 +915,7 @@ describe("loop.shared.views", function() {
         displayScreenShare: false
       });
 
-      expect(view.getDOMNode().querySelector(".media-wrapper")
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
         .classList.contains("receiving-screen-share")).eql(false);
     });
 
@@ -905,7 +924,7 @@ describe("loop.shared.views", function() {
         displayScreenShare: true
       });
 
-      expect(view.getDOMNode().querySelector(".media-wrapper")
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
         .classList.contains("receiving-screen-share")).eql(true);
     });
 
@@ -915,7 +934,7 @@ describe("loop.shared.views", function() {
         localPosterUrl: null
       });
 
-      expect(view.getDOMNode().querySelector(".media-wrapper")
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
         .classList.contains("showing-local-streams")).eql(false);
     });
 
@@ -925,7 +944,7 @@ describe("loop.shared.views", function() {
         localPosterUrl: null
       });
 
-      expect(view.getDOMNode().querySelector(".media-wrapper")
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
         .classList.contains("showing-local-streams")).eql(true);
     });
 
@@ -935,7 +954,7 @@ describe("loop.shared.views", function() {
         localPosterUrl: "fake/url"
       });
 
-      expect(view.getDOMNode().querySelector(".media-wrapper")
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
         .classList.contains("showing-local-streams")).eql(true);
     });
 
@@ -945,7 +964,7 @@ describe("loop.shared.views", function() {
         remotePosterUrl: null
       });
 
-      expect(view.getDOMNode().querySelector(".media-wrapper")
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
         .classList.contains("showing-remote-streams")).eql(false);
     });
 
@@ -955,7 +974,7 @@ describe("loop.shared.views", function() {
         remotePosterUrl: null
       });
 
-      expect(view.getDOMNode().querySelector(".media-wrapper")
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
         .classList.contains("showing-remote-streams")).eql(true);
     });
 
@@ -965,8 +984,26 @@ describe("loop.shared.views", function() {
         remotePosterUrl: "fake/url"
       });
 
-      expect(view.getDOMNode().querySelector(".media-wrapper")
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
         .classList.contains("showing-remote-streams")).eql(true);
+    });
+
+    it("should mark the wrapper as showing media wait tile when asking for user media", function() {
+      view = mountTestComponent({
+        showMediaWait: true
+      });
+
+      expect(ReactDOM.findDOMNode(view).querySelector(".media-wrapper")
+        .classList.contains("showing-media-wait")).eql(true);
+    });
+
+    it("should display a media wait tile when asking for user media", function() {
+      view = mountTestComponent({
+        showMediaWait: true
+      });
+
+      expect(ReactDOM.findDOMNode(view).querySelector(".prompt-media-message-wrapper"))
+        .not.eql(null);
     });
   });
 
@@ -1122,12 +1159,12 @@ describe("loop.shared.views", function() {
       });
 
       it("should add click class to the remote cursor", function() {
-        expect(view.getDOMNode().classList.contains("remote-cursor-clicked")).eql(true);
+        expect(ReactDOM.findDOMNode(view).classList.contains("remote-cursor-clicked")).eql(true);
       });
 
       it("should remove the click class when the animation is completed", function() {
         clock.tick(sharedViews.RemoteCursorView.TRIGGERED_RESET_DELAY);
-        expect(view.getDOMNode().classList.contains("remote-cursor-clicked")).eql(false);
+        expect(ReactDOM.findDOMNode(view).classList.contains("remote-cursor-clicked")).eql(false);
       });
     });
   });
@@ -1138,7 +1175,7 @@ describe("loop.shared.views", function() {
       loop.config.tilesIframeUrl = "data:text/html,<script>parent.postMessage('tile-click', '*');</script>";
 
       // Render the iframe into the fixture to cause it to load
-      React.render(React.createElement(
+      ReactDOM.render(React.createElement(
         sharedViews.AdsTileView, {
           dispatcher: dispatcher,
           showTile: true
@@ -1166,7 +1203,7 @@ describe("loop.shared.views", function() {
           showTile: true
         }));
 
-      var node = view.getDOMNode().querySelector("a");
+      var node = ReactDOM.findDOMNode(view).querySelector("a");
       TestUtils.Simulate.click(node);
       sinon.assert.calledOnce(dispatcher.dispatch);
       sinon.assert.calledWithExactly(dispatcher.dispatch,

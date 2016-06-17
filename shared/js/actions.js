@@ -17,9 +17,9 @@ loop.shared.actions = (function() {
   function Action(name, schema, values) {
     var validatedData = new loop.validate.Validator(schema || {})
                                          .validate(values || {});
-    for (var prop in validatedData) {
+    Object.keys(validatedData).forEach(function(prop) {
       this[prop] = validatedData[prop];
-    }
+    }.bind(this));
 
     this.name = name;
   }
@@ -196,6 +196,7 @@ loop.shared.actions = (function() {
      * A stream from local or remote media has been created.
      */
     MediaStreamCreated: Action.define("mediaStreamCreated", {
+      hasAudio: Boolean,
       hasVideo: Boolean,
       isLocal: Boolean,
       srcMediaElement: Object
@@ -417,24 +418,6 @@ loop.shared.actions = (function() {
     }),
 
     /**
-     * Share a room url via the Social API.
-     * XXX: should move to some roomActions module - refs bug 1079284
-     * @provider: one of the share-capable Social Providers included
-     * @roomUrl: the URL that is shared
-     */
-    ShareRoomUrl: Action.define("shareRoomUrl", {
-      provider: Object,
-      roomUrl: String
-    }),
-
-    /**
-     * Open the share panel to add a Social share provider.
-     * XXX: should move to some roomActions module - refs bug 1079284
-     */
-    AddSocialShareProvider: Action.define("addSocialShareProvider", {
-    }),
-
-    /**
      * XXX: should move to some roomActions module - refs bug 1079284
      */
     RoomFailure: Action.define("roomFailure", {
@@ -458,7 +441,6 @@ loop.shared.actions = (function() {
       // roomName: String - Optional.
       // roomState: String - Optional.
       roomUrl: String
-      // socialShareProviders: Array - Optional.
     }),
 
     /**
@@ -466,14 +448,6 @@ loop.shared.actions = (function() {
      */
     UserAgentHandlesRoom: Action.define("userAgentHandlesRoom", {
       handlesRoom: Boolean
-    }),
-
-    /**
-     * Updates the Social API information when it is received.
-     * XXX: should move to some roomActions module - refs bug 1079284
-     */
-    UpdateSocialShareInfo: Action.define("updateSocialShareInfo", {
-      socialShareProviders: Array
     }),
 
     /**

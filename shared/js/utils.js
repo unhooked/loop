@@ -117,7 +117,6 @@ if (inChrome) {
   var CHAT_CONTENT_TYPES = {
     CONTEXT: "chat-context",
     TEXT: "chat-text",
-    ROOM_NAME: "room-name",
     CONTEXT_TILE: "context-tile",
     NOTIFICATION: "chat-notification"
   };
@@ -249,13 +248,11 @@ if (inChrome) {
     platform = platform.toLowerCase().split(";");
     if (/macintosh/.test(platform[0]) || /x11/.test(platform[0])) {
       platform = platform[1];
+    } else if (platform[0].indexOf("win") > -1 && platform.length > 4) {
+      // Skip the security notation.
+      platform = platform[2];
     } else {
-      if (platform[0].indexOf("win") > -1 && platform.length > 4) {
-        // Skip the security notation.
-        platform = platform[2];
-      } else {
-        platform = platform[0];
-      }
+      platform = platform[0];
     }
 
     if (!withVersion) {
@@ -425,6 +422,38 @@ if (inChrome) {
       }
       return null;
     }
+  }
+
+
+  /**
+   * Formats a url for context url links.
+   *
+   * @param {String}  url                   The url to format.
+   * @return {Object}                       Sanitized url object containing the hostname,
+   *                                        full location and protocol
+   */
+  function formatSanitizedContextURL(url) {
+    if (!url) {
+      return null;
+    }
+    // Bug 1196143 - formatURL sanitizes(decodes) the URL from IDN homographic attacks.
+    // Try catch to not produce output if invalid url
+    var sanitizedURL;
+    try {
+      sanitizedURL = loop.shared.utils.formatURL(url, true);
+    } catch (ex) {
+      return null;
+    }
+
+    // Only allow specific types of URLs.
+    if (!sanitizedURL ||
+      (sanitizedURL.protocol !== "http:" &&
+      sanitizedURL.protocol !== "https:" &&
+      sanitizedURL.protocol !== "ftp:")) {
+      return null;
+    }
+
+    return sanitizedURL;
   }
 
   /**
@@ -795,6 +824,7 @@ if (inChrome) {
     composeCallUrlEmail: composeCallUrlEmail,
     findParentNode: findParentNode,
     formatDate: formatDate,
+    formatSanitizedContextURL: formatSanitizedContextURL,
     formatURL: formatURL,
     getBoolPreference: getBoolPreference,
     getOS: getOS,

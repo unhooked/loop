@@ -8,7 +8,6 @@ loop.shared.views = (function(_, mozL10n) {
   "use strict";
 
   var sharedActions = loop.shared.actions;
-  var sharedMixins = loop.shared.mixins;
 
   /**
    * Hang-up control button.
@@ -35,7 +34,7 @@ loop.shared.views = (function(_, mozL10n) {
       return (
           <button className="btn btn-hangup"
                   onClick={this.handleClick}
-                  title={this.props.title}/>
+                  title={this.props.title} />
       );
     }
   });
@@ -52,6 +51,7 @@ loop.shared.views = (function(_, mozL10n) {
   var MediaControlButton = React.createClass({
     propTypes: {
       action: React.PropTypes.func.isRequired,
+      disabled: React.PropTypes.bool,
       muted: React.PropTypes.bool.isRequired,
       scope: React.PropTypes.string.isRequired,
       title: React.PropTypes.string,
@@ -60,7 +60,11 @@ loop.shared.views = (function(_, mozL10n) {
     },
 
     getDefaultProps: function() {
-      return { muted: false, visible: true };
+      return {
+        disabled: false,
+        muted: false,
+        visible: true
+      };
     },
 
     handleClick: function() {
@@ -75,8 +79,9 @@ loop.shared.views = (function(_, mozL10n) {
         "media-control": true,
         "transparent-button": true,
         "local-media": this.props.scope === "local",
-        "muted": this.props.muted,
-        "hide": !this.props.visible
+        "muted": this.props.muted || this.props.disabled,
+        "hide": !this.props.visible,
+        "disabled": this.props.disabled
       };
       classesObj["btn-mute-" + this.props.type] = true;
       return cx(classesObj);
@@ -87,7 +92,7 @@ loop.shared.views = (function(_, mozL10n) {
         return this.props.title;
       }
 
-      var prefix = this.props.muted ? "unmute" : "mute";
+      var prefix = this.props.muted || this.props.disabled ? "unmute" : "mute";
       var suffix = (this.props.type === "video") ? "button_title2" : "button_title";
       var msgId = [prefix, this.props.scope, this.props.type, suffix].join("_");
       return mozL10n.get(msgId);
@@ -210,16 +215,16 @@ loop.shared.views = (function(_, mozL10n) {
           this.props.showHangup && showButtons ?
           <li className="conversation-toolbar-btn-box btn-hangup-entry">
             <HangUpControlButton action={this.handleClickHangup}
-                                 title={mozL10n.get("rooms_leave_button_label")}/>
+                                 title={mozL10n.get("rooms_leave_button_label")} />
           </li> : null
         }
 
           <li className="conversation-toolbar-btn-box">
             <div className={mediaButtonGroupCssClasses}>
                 <VideoMuteButton dispatcher={this.props.dispatcher}
-                                 muted={!this.props.video.enabled}/>
+                                 muted={!this.props.video.enabled} />
                 <AudioMuteButton dispatcher={this.props.dispatcher}
-                                 muted={!this.props.audio.enabled}/>
+                                 muted={!this.props.audio.enabled} />
             </div>
           </li>
         </ul>
@@ -229,11 +234,22 @@ loop.shared.views = (function(_, mozL10n) {
 
   var AudioMuteButton = React.createClass({
     propTypes: {
+      disabled: React.PropTypes.bool,
       dispatcher: React.PropTypes.instanceOf(loop.Dispatcher),
       muted: React.PropTypes.bool.isRequired
     },
 
+    getDefaultProps: function() {
+      return {
+        disabled: false
+      };
+    },
+
     toggleAudio: function() {
+      if (this.props.disabled) {
+        return;
+      }
+
       this.props.dispatcher.dispatch(
         new sharedActions.SetMute({ type: "audio", enabled: this.props.muted })
       );
@@ -242,6 +258,7 @@ loop.shared.views = (function(_, mozL10n) {
     render: function() {
       return (
         <MediaControlButton action={this.toggleAudio}
+                            disabled={this.props.disabled}
                             muted={this.props.muted}
                             scope="local"
                             type="audio" />
@@ -251,11 +268,22 @@ loop.shared.views = (function(_, mozL10n) {
 
   var VideoMuteButton = React.createClass({
     propTypes: {
+      disabled: React.PropTypes.bool,
       dispatcher: React.PropTypes.instanceOf(loop.Dispatcher),
       muted: React.PropTypes.bool.isRequired
     },
 
+    getDefaultProps: function() {
+      return {
+        disabled: false
+      };
+    },
+
     toggleVideo: function() {
+      if (this.props.disabled) {
+        return;
+      }
+
       this.props.dispatcher.dispatch(
         new sharedActions.SetMute({ type: "video", enabled: this.props.muted })
       );
@@ -264,92 +292,10 @@ loop.shared.views = (function(_, mozL10n) {
     render: function() {
       return (
         <MediaControlButton action={this.toggleVideo}
-                            muted={this.props.muted}
+                            disabled={this.props.disabled}
+                            muted={this.props.muted || this.props.disabled}
                             scope="local"
                             type="video" />
-      );
-    }
-  });
-
-  /**
-   * Notification view.
-   */
-  var NotificationView = React.createClass({
-    mixins: [Backbone.Events],
-
-    propTypes: {
-      notification: React.PropTypes.object.isRequired
-    },
-
-    render: function() {
-      var notification = this.props.notification;
-      return (
-        <div className="notificationContainer">
-          <div className={"alert alert-" + notification.get("level")}>
-            <span className="message">{notification.get("message")}</span>
-          </div>
-          <div className={"detailsBar details-" + notification.get("level")}
-               hidden={!notification.get("details")}>
-            <button className="detailsButton btn-info"
-                    hidden={!notification.get("detailsButtonLabel") || !notification.get("detailsButtonCallback")}
-                    onClick={notification.get("detailsButtonCallback")}>
-              {notification.get("detailsButtonLabel")}
-            </button>
-            <span className="details">{notification.get("details")}</span>
-          </div>
-        </div>
-      );
-    }
-  });
-
-  /**
-   * Notification list view.
-   */
-  var NotificationListView = React.createClass({
-    mixins: [Backbone.Events, sharedMixins.DocumentVisibilityMixin],
-
-    propTypes: {
-      clearOnDocumentHidden: React.PropTypes.bool,
-      notifications: React.PropTypes.object.isRequired
-    },
-
-    getDefaultProps: function() {
-      return { clearOnDocumentHidden: false };
-    },
-
-    componentDidMount: function() {
-      this.listenTo(this.props.notifications, "reset add remove", function() {
-        this.forceUpdate();
-      });
-    },
-
-    componentWillUnmount: function() {
-      this.stopListening(this.props.notifications);
-    },
-
-    /**
-     * Provided by DocumentVisibilityMixin. Clears notifications stack when the
-     * current document is hidden if the clearOnDocumentHidden prop is set to
-     * true and the collection isn't empty.
-     */
-    onDocumentHidden: function() {
-      if (this.props.clearOnDocumentHidden &&
-          this.props.notifications.length > 0) {
-        // Note: The `silent` option prevents the `reset` event to be triggered
-        // here, preventing the UI to "jump" a little because of the event
-        // callback being processed in another tick (I think).
-        this.props.notifications.reset([], { silent: true });
-        this.forceUpdate();
-      }
-    },
-
-    render: function() {
-      return (
-        <div className="messages">
-          {this.props.notifications.map(function(notification, key) {
-            return <NotificationView key={key} notification={notification} />;
-          })}
-        </div>
       );
     }
   });
@@ -515,7 +461,7 @@ loop.shared.views = (function(_, mozL10n) {
     mixins: [React.addons.PureRenderMixin],
 
     render: function() {
-        return <div className="avatar"/>;
+        return <div className="avatar" />;
     }
   });
 
@@ -528,9 +474,64 @@ loop.shared.views = (function(_, mozL10n) {
     render: function() {
         return (
           <div className="loading-background">
-            <div className="loading-stream"/>
+            <div className="loading-stream" />
           </div>
         );
+    }
+  });
+
+  /**
+   * Renders the a href link for context.
+   *
+   * @property {Boolean} allowClick         Set to true to allow the url to be clicked.
+   * @property {String}  description        The description for the context url.
+   * @property {Function}  handleClick      Function for handling click operation when
+   *                                        context link is clicked
+   * @property {String}  thumbnail          The thumbnail url (expected to be a data url) to
+   *                                        display. If not specified, a fallback url will be
+   *                                        shown.
+   * @property {String}  url                The url to be displayed. If not present or invalid,
+   *                                        the context link will not be clickable
+   */
+  var ContextUrlLink = React.createClass({
+    mixins: [React.addons.PureRenderMixin],
+
+    propTypes: {
+      allowClick: React.PropTypes.bool.isRequired,
+      children: React.PropTypes.node,
+      description: React.PropTypes.string,
+      handleClick: React.PropTypes.func,
+      url: React.PropTypes.string
+    },
+
+    render: function() {
+      var sanitizedURL = loop.shared.utils.formatSanitizedContextURL(this.props.url);
+
+      var opts = {};
+      opts.classNames = classNames({
+        "context-wrapper": true,
+        "clicks-allowed": this.props.allowClick
+      });
+      if (this.props.allowClick && sanitizedURL) {
+        opts.href = sanitizedURL.location;
+      }
+      if (this.props.handleClick) {
+        opts.onClick = this.props.handleClick;
+      }
+      if (this.props.description) {
+        opts.title = this.props.description;
+      }
+
+      return (
+        <a className={opts.classNames}
+           href={opts.href}
+           onClick={opts.onClick}
+           rel="noreferrer"
+           target="_blank"
+           title={opts.title}>
+          {this.props.children}
+        </a>
+      );
     }
   });
 
@@ -552,7 +553,7 @@ loop.shared.views = (function(_, mozL10n) {
 
     propTypes: {
       allowClick: React.PropTypes.bool.isRequired,
-      description: React.PropTypes.string.isRequired,
+      description: React.PropTypes.string,
       dispatcher: React.PropTypes.instanceOf(loop.Dispatcher),
       thumbnail: React.PropTypes.string,
       url: React.PropTypes.string
@@ -572,48 +573,30 @@ loop.shared.views = (function(_, mozL10n) {
     },
 
     render: function() {
-      // Bug 1196143 - formatURL sanitizes(decodes) the URL from IDN homographic attacks.
-      // Try catch to not produce output if invalid url
-      try {
-        var sanitizedURL = loop.shared.utils.formatURL(this.props.url, true);
-      } catch (ex) {
-        return null;
-      }
-
-      // Only allow specific types of URLs.
-      if (!sanitizedURL ||
-          (sanitizedURL.protocol !== "http:" &&
-           sanitizedURL.protocol !== "https:" &&
-           sanitizedURL.protocol !== "ftp:")) {
-        return null;
-      }
-
+      var description = this.props.description || null;
       var thumbnail = this.props.thumbnail;
+      var url = this.props.url || null;
+      var sanitizedURL = loop.shared.utils.formatSanitizedContextURL(url) || {};
+      var hostname = sanitizedURL.hostname || null;
 
       if (!thumbnail) {
         thumbnail = "shared/img/icons-16x16.svg#globe";
       }
 
-      var wrapperClasses = classNames({
-        "context-wrapper": true,
-        "clicks-allowed": this.props.allowClick
-      });
-
       return (
         <div className="context-content">
-          <a className={wrapperClasses}
-             href={this.props.allowClick ? this.props.url : null}
-             onClick={this.handleLinkClick}
-             rel="noreferrer"
-             target="_blank">
+          <ContextUrlLink allowClick={this.props.allowClick}
+                          description={description}
+                          handleClick={this.handleLinkClick}
+                          url={url}>
             <img className="context-preview" src={thumbnail} />
             <span className="context-info">
-              {this.props.description}
+              {description}
               <span className="context-url">
-                {sanitizedURL.hostname}
+                {hostname}
               </span>
             </span>
-          </a>
+          </ContextUrlLink>
         </div>
       );
     }
@@ -659,7 +642,7 @@ loop.shared.views = (function(_, mozL10n) {
     },
 
     componentWillUnmount: function() {
-      var videoElement = this.getDOMNode().querySelector("video");
+      var videoElement = ReactDOM.findDOMNode(this).querySelector("video");
       if (!this.props.shareCursor || !videoElement) {
         return;
       }
@@ -677,7 +660,7 @@ loop.shared.views = (function(_, mozL10n) {
     },
 
     handleVideoDimensions: function() {
-      var videoElement = this.getDOMNode().querySelector("video");
+      var videoElement = ReactDOM.findDOMNode(this).querySelector("video");
       if (!videoElement) {
         return;
       }
@@ -707,7 +690,7 @@ loop.shared.views = (function(_, mozL10n) {
       var storeState = this.props.cursorStore.getStoreState();
 
       // video is not at the top, so we need to calculate the offset
-      var video = this.getDOMNode().querySelector("video");
+      var video = ReactDOM.findDOMNode(this).querySelector("video");
       var offset = video.getBoundingClientRect();
 
       var deltaX = event.clientX
@@ -758,7 +741,7 @@ loop.shared.views = (function(_, mozL10n) {
         return;
       }
 
-      var videoElement = this.getDOMNode().querySelector("video");
+      var videoElement = ReactDOM.findDOMNode(this).querySelector("video");
       if (!videoElement || videoElement.tagName.toLowerCase() !== "video") {
         // Must be displaying the avatar view, so don't try and attach video.
         return;
@@ -805,12 +788,7 @@ loop.shared.views = (function(_, mozL10n) {
       }
 
       if (!this.props.srcMediaElement && !this.props.posterUrl) {
-        return <div className="no-video"/>;
-      }
-
-      var optionalProps = {};
-      if (this.props.posterUrl) {
-        optionalProps.poster = this.props.posterUrl;
+        return <div className="no-video" />;
       }
 
       // For now, always mute media. For local media, we should be muted anyway,
@@ -828,9 +806,9 @@ loop.shared.views = (function(_, mozL10n) {
           <RemoteCursorView
             videoElementSize={this.state.videoElementSize} /> :
             null}
-          <video {...optionalProps}
-                 className={this.props.mediaType + "-video"}
-                 muted />
+          <video className={this.props.mediaType + "-video"}
+                 muted={true}
+                 poster={this.props.posterUrl} />
         </div>
       );
     }
@@ -859,6 +837,7 @@ loop.shared.views = (function(_, mozL10n) {
       screenSharePosterUrl: React.PropTypes.string,
       screenSharingPaused: React.PropTypes.bool,
       showInitialContext: React.PropTypes.bool.isRequired,
+      showMediaWait: React.PropTypes.bool.isRequired,
       showTile: React.PropTypes.bool.isRequired
     },
 
@@ -917,6 +896,29 @@ loop.shared.views = (function(_, mozL10n) {
       );
     },
 
+    renderMediaWait: function() {
+      var msg = mozL10n.get("call_progress_getting_media_description",
+                                { clientShortname: mozL10n.get("clientShortname2") });
+      var utils = loop.shared.utils;
+      var isChrome = utils.isChrome(navigator.userAgent);
+      var isFirefox = utils.isFirefox(navigator.userAgent);
+      var isOpera = utils.isOpera(navigator.userAgent);
+      var promptMediaMessageClasses = classNames({
+        "prompt-media-message": true,
+        "chrome": isChrome,
+        "firefox": isFirefox,
+        "opera": isOpera,
+        "other": !isChrome && !isFirefox && !isOpera
+      });
+      return (
+        <div className="prompt-media-message-wrapper">
+        <p className={promptMediaMessageClasses}>
+          {msg}
+        </p>
+        </div>
+      );
+    },
+
     render: function() {
       var remoteStreamClasses = classNames({
         "remote": true,
@@ -934,6 +936,7 @@ loop.shared.views = (function(_, mozL10n) {
         "receiving-screen-share": this.props.displayScreenShare,
         "showing-local-streams": this.props.localSrcMediaElement ||
           this.props.localPosterUrl,
+        "showing-media-wait": this.props.showMediaWait,
         "showing-remote-streams": this.props.remoteSrcMediaElement ||
           this.props.remotePosterUrl || this.props.isRemoteLoading
       });
@@ -974,6 +977,8 @@ loop.shared.views = (function(_, mozL10n) {
               showTile={this.props.showTile} />
             {this.state.localMediaAboslutelyPositioned ?
               null : this.renderLocalVideo()}
+            {this.props.showMediaWait ?
+              this.renderMediaWait() : null}
           </div>
         </div>
       );
@@ -1169,6 +1174,7 @@ loop.shared.views = (function(_, mozL10n) {
     Button: Button,
     ButtonGroup: ButtonGroup,
     Checkbox: Checkbox,
+    ContextUrlLink: ContextUrlLink,
     ContextUrlView: ContextUrlView,
     ConversationToolbar: ConversationToolbar,
     HangUpControlButton: HangUpControlButton,
@@ -1176,7 +1182,6 @@ loop.shared.views = (function(_, mozL10n) {
     MediaLayoutView: MediaLayoutView,
     MediaView: MediaView,
     LoadingView: LoadingView,
-    NotificationListView: NotificationListView,
     RemoteCursorView: RemoteCursorView,
     VideoMuteButton: VideoMuteButton
   };

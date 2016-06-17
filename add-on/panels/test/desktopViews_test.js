@@ -57,7 +57,7 @@ describe("loop.shared.desktopViews", function() {
     });
 
     it("should dispatch a CopyRoomUrl action when the copy button is pressed", function() {
-      var copyBtn = view.getDOMNode();
+      var copyBtn = ReactDOM.findDOMNode(view);
       React.addons.TestUtils.Simulate.click(copyBtn);
 
       sinon.assert.calledOnce(dispatcher.dispatch);
@@ -68,14 +68,14 @@ describe("loop.shared.desktopViews", function() {
     });
 
     it("should change the text when the url has been copied", function() {
-      var copyBtn = view.getDOMNode();
+      var copyBtn = ReactDOM.findDOMNode(view);
       React.addons.TestUtils.Simulate.click(copyBtn);
 
       expect(copyBtn.textContent).eql("translated:invite_copied_link_button");
     });
 
     it("should keep the text for a while after the url has been copied", function() {
-      var copyBtn = view.getDOMNode();
+      var copyBtn = ReactDOM.findDOMNode(view);
       React.addons.TestUtils.Simulate.click(copyBtn);
       clock.tick(sharedDesktopViews.CopyLinkButton.TRIGGERED_RESET_DELAY / 2);
 
@@ -83,7 +83,7 @@ describe("loop.shared.desktopViews", function() {
     });
 
     it("should reset the text a bit after the url has been copied", function() {
-      var copyBtn = view.getDOMNode();
+      var copyBtn = ReactDOM.findDOMNode(view);
       React.addons.TestUtils.Simulate.click(copyBtn);
       clock.tick(sharedDesktopViews.CopyLinkButton.TRIGGERED_RESET_DELAY);
 
@@ -95,7 +95,7 @@ describe("loop.shared.desktopViews", function() {
       view = mountTestComponent({
         callback: callback
       });
-      var copyBtn = view.getDOMNode();
+      var copyBtn = ReactDOM.findDOMNode(view);
       React.addons.TestUtils.Simulate.click(copyBtn);
       clock.tick(sharedDesktopViews.CopyLinkButton.TRIGGERED_RESET_DELAY);
 
@@ -126,7 +126,7 @@ describe("loop.shared.desktopViews", function() {
     it("should dispatch an EmailRoomUrl with no description" +
        " for rooms without context when the email button is pressed",
       function() {
-        var emailBtn = view.getDOMNode();
+        var emailBtn = ReactDOM.findDOMNode(view);
 
         React.addons.TestUtils.Simulate.click(emailBtn);
 
@@ -148,7 +148,7 @@ describe("loop.shared.desktopViews", function() {
           }
         });
 
-        var emailBtn = view.getDOMNode();
+        var emailBtn = ReactDOM.findDOMNode(view);
 
         React.addons.TestUtils.Simulate.click(emailBtn);
 
@@ -166,7 +166,7 @@ describe("loop.shared.desktopViews", function() {
       view = mountTestComponent({
         callback: callback
       });
-      var emailBtn = view.getDOMNode();
+      var emailBtn = ReactDOM.findDOMNode(view);
       React.addons.TestUtils.Simulate.click(emailBtn);
 
       sinon.assert.calledOnce(callback);
@@ -193,7 +193,7 @@ describe("loop.shared.desktopViews", function() {
       function() {
         view = mountTestComponent();
 
-        var facebookBtn = view.getDOMNode();
+        var facebookBtn = ReactDOM.findDOMNode(view);
 
         React.addons.TestUtils.Simulate.click(facebookBtn);
 
@@ -210,7 +210,7 @@ describe("loop.shared.desktopViews", function() {
       view = mountTestComponent({
         callback: callback
       });
-      var facebookBtn = view.getDOMNode();
+      var facebookBtn = ReactDOM.findDOMNode(view);
       React.addons.TestUtils.Simulate.click(facebookBtn);
 
       sinon.assert.calledOnce(callback);
@@ -240,7 +240,7 @@ describe("loop.shared.desktopViews", function() {
           facebookEnabled: false
         });
 
-        expect(view.getDOMNode().querySelectorAll(".btn-facebook"))
+        expect(ReactDOM.findDOMNode(view).querySelectorAll(".btn-facebook"))
           .to.have.length.of(0);
       });
 
@@ -250,7 +250,7 @@ describe("loop.shared.desktopViews", function() {
           facebookEnabled: true
         });
 
-        expect(view.getDOMNode().querySelectorAll(".btn-facebook"))
+        expect(ReactDOM.findDOMNode(view).querySelectorAll(".btn-facebook"))
           .to.have.length.of(1);
       });
 
@@ -259,7 +259,7 @@ describe("loop.shared.desktopViews", function() {
         show: false
       });
 
-      expect(view.getDOMNode()).eql(null);
+      expect(ReactDOM.findDOMNode(view)).eql(null);
     });
 
     it("should not display the panel when roomUrl is not defined", function() {
@@ -267,101 +267,7 @@ describe("loop.shared.desktopViews", function() {
         roomData: {}
       });
 
-      expect(view.getDOMNode()).eql(null);
-    });
-  });
-
-  describe("SocialShareDropdown", function() {
-    var fakeProvider, view;
-
-    beforeEach(function() {
-      fakeProvider = {
-        name: "foo",
-        origin: "https://foo",
-        iconURL: "http://example.com/foo.png"
-      };
-    });
-
-    afterEach(function() {
-      fakeProvider = null;
-    });
-
-    function mountTestComponent(props) {
-      props = _.extend({
-        dispatcher: dispatcher,
-        show: true
-      }, props);
-      return TestUtils.renderIntoDocument(
-        React.createElement(sharedDesktopViews.SocialShareDropdown, props));
-    }
-
-    describe("#render", function() {
-      it("should show no contents when the Social Providers have not been fetched yet", function() {
-        view = mountTestComponent();
-
-        expect(view.getDOMNode()).to.eql(null);
-      });
-
-      it("should show an empty list when no Social Providers are available", function() {
-        view = mountTestComponent({
-          socialShareProviders: []
-        });
-
-        var node = view.getDOMNode();
-        expect(node.querySelector(".icon-add-share-service")).to.not.eql(null);
-        expect(node.querySelectorAll(".dropdown-menu-item").length).to.eql(1);
-      });
-
-      it("should show a list of available Social Providers", function() {
-        view = mountTestComponent({
-          socialShareProviders: [fakeProvider]
-        });
-
-        var node = view.getDOMNode();
-        expect(node.querySelector(".icon-add-share-service")).to.not.eql(null);
-        expect(node.querySelector(".dropdown-menu-separator")).to.not.eql(null);
-
-        var dropdownNodes = node.querySelectorAll(".dropdown-menu-item");
-        expect(dropdownNodes.length).to.eql(2);
-        expect(dropdownNodes[1].querySelector("img").src).to.eql(fakeProvider.iconURL);
-        expect(dropdownNodes[1].querySelector("span").textContent)
-          .to.eql(fakeProvider.name);
-      });
-    });
-
-    describe("#handleAddServiceClick", function() {
-      it("should dispatch an action when the 'add provider' item is clicked", function() {
-        view = mountTestComponent({
-          socialShareProviders: []
-        });
-
-        var addItem = view.getDOMNode().querySelector(".dropdown-menu-item:first-child");
-        React.addons.TestUtils.Simulate.click(addItem);
-
-        sinon.assert.calledOnce(dispatcher.dispatch);
-        sinon.assert.calledWithExactly(dispatcher.dispatch,
-          new sharedActions.AddSocialShareProvider());
-      });
-    });
-
-    describe("#handleProviderClick", function() {
-      it("should dispatch an action when a provider item is clicked", function() {
-        view = mountTestComponent({
-          roomUrl: "http://example.com",
-          socialShareProviders: [fakeProvider]
-        });
-
-        var providerItem = view.getDOMNode().querySelector(".dropdown-menu-item:last-child");
-        React.addons.TestUtils.Simulate.click(providerItem);
-
-        sinon.assert.calledOnce(dispatcher.dispatch);
-        sinon.assert.calledWithExactly(dispatcher.dispatch,
-          new sharedActions.ShareRoomUrl({
-            provider: fakeProvider,
-            roomUrl: "http://example.com",
-            previews: []
-          }));
-      });
+      expect(ReactDOM.findDOMNode(view)).eql(null);
     });
   });
 });

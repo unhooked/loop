@@ -10,10 +10,13 @@ describe("loop.conversation", function() {
   var TestUtils = React.addons.TestUtils;
   var sharedActions = loop.shared.actions;
   var fakeWindow, sandbox, setLoopPrefStub, mozL10nGet,
-    remoteCursorStore, dispatcher, requestStubs;
+    remoteCursorStore, dispatcher, requestStubs, clock;
 
   beforeEach(function() {
     sandbox = LoopMochaUtils.createSandbox();
+    // This ensures that the timers in ConversationToolbar are stubbed, as the
+    // get called when the AppControllerView is mounted.
+    clock = sandbox.useFakeTimers();
     setLoopPrefStub = sandbox.stub();
 
     LoopMochaUtils.stubLoopRequest(requestStubs = {
@@ -98,6 +101,7 @@ describe("loop.conversation", function() {
 
   afterEach(function() {
     loop.shared.mixins.setRootObject(window);
+    clock.restore();
     sandbox.restore();
     LoopMochaUtils.restore();
   });
@@ -105,7 +109,7 @@ describe("loop.conversation", function() {
   describe("#init", function() {
     var OTRestore;
     beforeEach(function() {
-      sandbox.stub(React, "render");
+      sandbox.stub(ReactDOM, "render");
       sandbox.stub(document.mozL10n, "initialize");
 
       sandbox.stub(loop.Dispatcher.prototype, "dispatch");
@@ -136,8 +140,8 @@ describe("loop.conversation", function() {
     it("should create the AppControllerView", function() {
       loop.conversation.init();
 
-      sinon.assert.calledOnce(React.render);
-      sinon.assert.calledWith(React.render,
+      sinon.assert.calledOnce(ReactDOM.render);
+      sinon.assert.calledWith(ReactDOM.render,
         sinon.match(function(value) {
           return TestUtils.isCompositeComponentElement(value,
             loop.conversation.AppControllerView);
@@ -194,9 +198,8 @@ describe("loop.conversation", function() {
       remoteCursorStore = new loop.store.RemoteCursorStore(dispatcher, {
         sdkDriver: {}
       });
-      conversationAppStore = new loop.store.ConversationAppStore({
+      conversationAppStore = new loop.store.ConversationAppStore(dispatcher, {
         activeRoomStore: activeRoomStore,
-        dispatcher: dispatcher,
         feedbackPeriod: 42,
         feedbackTimestamp: 42,
         facebookEnabled: false

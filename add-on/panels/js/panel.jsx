@@ -3,14 +3,14 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 var loop = loop || {};
-loop.panel = (function(_, mozL10n) {
+loop.panel = _.extend(loop.panel || {}, (function(_, mozL10n) {
   "use strict";
 
   var sharedActions = loop.shared.actions;
   var sharedMixins = loop.shared.mixins;
-  var sharedModels = loop.shared.models;
   var sharedDesktopViews = loop.shared.desktopViews;
   var sharedViews = loop.shared.views;
+  var panelModels = loop.panel.models;
   var Button = sharedViews.Button;
 
   // XXX This must be kept in sync with the number in MozLoopService.jsm.
@@ -34,16 +34,18 @@ loop.panel = (function(_, mozL10n) {
     },
 
     renderGettingStartedButton: function() {
-      if (!this.props.displayRoomListContent) {
-        return (
-          <div className="fte-button-container">
-            <Button additionalClass="fte-get-started-button"
-                    caption={mozL10n.get("first_time_experience_button_label2")}
-                    htmlId="fte-button"
-                    onClick={this.handleButtonClick} />
-          </div>
-        );
+      if (this.props.displayRoomListContent) {
+        return null;
       }
+
+      return (
+        <div className="fte-button-container">
+          <Button additionalClass="fte-get-started-button"
+                  caption={mozL10n.get("first_time_experience_button_label2")}
+                  htmlId="fte-button"
+                  onClick={this.handleButtonClick} />
+        </div>
+      );
     },
 
     render: function() {
@@ -62,7 +64,7 @@ loop.panel = (function(_, mozL10n) {
                   mozL10n.get("first_time_experience_subheading2")}
             </div>
             {this.props.displayRoomListContent ?
-              null : <hr className="fte-separator"/>}
+              null : <hr className="fte-separator" />}
             <div className="fte-content">
               {this.props.displayRoomListContent ?
                 mozL10n.get("first_time_experience_content2") :
@@ -143,31 +145,33 @@ loop.panel = (function(_, mozL10n) {
     },
 
     render: function() {
+      var tosString =
+        '<a href="' + this.state.terms_of_use_url + '" target="_blank">' +
+        mozL10n.get("legal_text_tos") +
+        "</a>";
+
+      var privacyString =
+        '<a href="' + this.state.privacy_notice_url + '" target="_blank">' +
+        mozL10n.get("legal_text_privacy") +
+        "</a>";
+
       var locale = mozL10n.language.code;
       var tosHTML = mozL10n.get("legal_text_and_links3", {
         "clientShortname": mozL10n.get("clientShortname2"),
-        "terms_of_use": React.renderToStaticMarkup(
-          <a href={this.state.terms_of_use_url} target="_blank">
-            {mozL10n.get("legal_text_tos")}
-          </a>
-        ),
-        "privacy_notice": React.renderToStaticMarkup(
-          <a href={this.state.privacy_notice_url} target="_blank">
-            {mozL10n.get("legal_text_privacy")}
-          </a>
-        )
+        "terms_of_use": tosString,
+        "privacy_notice": privacyString
       });
 
       return (
         <div className="powered-by-wrapper" id="powered-by-wrapper">
           <p className="powered-by" id="powered-by">
             {mozL10n.get("powered_by_beforeLogo")}
-            <span className={locale} id="powered-by-logo"/>
+            <span className={locale} id="powered-by-logo" />
             {mozL10n.get("powered_by_afterLogo")}
           </p>
           <p className="terms-service"
              dangerouslySetInnerHTML={{ __html: tosHTML }}
-             onClick={this.handleLinkClick}></p>
+             onClick={this.handleLinkClick} />
          </div>
       );
     }
@@ -231,7 +235,7 @@ loop.panel = (function(_, mozL10n) {
         ).then(function(results) {
           this.setState({
             signedIn: !!results[0],
-            doNotDisturb: results[2]
+            doNotDisturb: results[1]
           });
         }.bind(this));
       }
@@ -415,6 +419,21 @@ loop.panel = (function(_, mozL10n) {
   });
 
   /**
+   *  Aux function to retrieve the name of a room
+   */
+  function _getRoomTitle(room) {
+    if (!room) {
+      return mozL10n.get("room_name_untitled_page");
+    }
+
+    var urlData = (room.decryptedContext.urls || [])[0] || {};
+    return room.decryptedContext.roomName ||
+           urlData.description ||
+           urlData.location ||
+           mozL10n.get("room_name_untitled_page");
+  }
+
+  /**
    * Room list entry.
    *
    * Active Room means there are participants in the room.
@@ -436,15 +455,8 @@ loop.panel = (function(_, mozL10n) {
       return {
         editMode: false,
         eventPosY: 0,
-        newRoomName: this._getRoomTitle()
+        newRoomName: _getRoomTitle(this.props.room)
       };
-    },
-
-    _getRoomTitle: function() {
-      var urlData = (this.props.room.decryptedContext.urls || [])[0] || {};
-      return this.props.room.decryptedContext.roomName ||
-        urlData.description || urlData.location ||
-        mozL10n.get("room_name_untitled_page");
     },
 
     _isActive: function() {
@@ -453,7 +465,7 @@ loop.panel = (function(_, mozL10n) {
 
     componentDidUpdate: function() {
       if (this.state.editMode) {
-        this.getDOMNode().querySelector(".edit-room-input").focus();
+        ReactDOM.findDOMNode(this).querySelector(".edit-room-input").focus();
       }
     },
 
@@ -464,17 +476,13 @@ loop.panel = (function(_, mozL10n) {
         return;
       }
 
-      this.props.dispatcher.dispatch(new sharedActions.OpenRoom({
-        roomToken: this.props.room.roomToken
-      }));
-
       // Open url if needed.
       loop.requestMulti(
         ["getSelectedTabMetadata"],
         ["GettingStartedURL", null, {}]
       ).then(function(results) {
         var contextURL = this.props.room.decryptedContext.urls &&
-          this.props.room.decryptedContext.urls[0].location;
+                         this.props.room.decryptedContext.urls[0].location;
 
         contextURL = contextURL || (results[1] + "?noopenpanel=1");
 
@@ -482,6 +490,12 @@ loop.panel = (function(_, mozL10n) {
           loop.request("OpenURL", contextURL);
         }
         this.closeWindow();
+
+        // open the room after the (possible) tab change to be able to
+        // share when opening from non-remote tab.
+        this.props.dispatcher.dispatch(new sharedActions.OpenRoom({
+          roomToken: this.props.room.roomToken
+        }));
       }.bind(this));
     },
 
@@ -545,7 +559,7 @@ loop.panel = (function(_, mozL10n) {
         "room-active": this._isActive(),
         "room-opened": this.props.isOpenedRoom
       });
-      var roomTitle = this._getRoomTitle();
+      var roomTitle = _getRoomTitle(this.props.room);
 
       return (
         <div className={roomClasses}
@@ -562,7 +576,7 @@ loop.panel = (function(_, mozL10n) {
               onChange={this.handleEditInputChange}
               onKeyDown={this.handleKeyDown}
               type="text"
-              value={this.state.newRoomName}/>}
+              value={this.state.newRoomName} />}
           {this.props.isOpenedRoom || this.state.editMode ? null :
             <RoomEntryContextButtons
               dispatcher={this.props.dispatcher}
@@ -673,7 +687,9 @@ loop.panel = (function(_, mozL10n) {
       topPos = clickYPos - listTop + clickOffset;
     }
     // Ensure menu is not cut off at top
-    if (topPos < 0) { topPos = 0; }
+    if (topPos < 0) {
+      topPos = 0;
+    }
 
     return topPos;
   }
@@ -701,12 +717,13 @@ loop.panel = (function(_, mozL10n) {
     },
 
     componentDidMount: function() {
-      var menuNode = this.getDOMNode();
+      var menuNode = ReactDOM.findDOMNode(this);
+
       var menuNodeRect = menuNode.getBoundingClientRect();
 
       // Get the parent element and make sure the menu does not overlow its
       // container.
-      var listNode = loop.shared.utils.findParentNode(this.getDOMNode(),
+      var listNode = loop.shared.utils.findParentNode(ReactDOM.findDOMNode(this),
                                                       "rooms");
       var listNodeRect = listNode.getBoundingClientRect();
 
@@ -764,6 +781,7 @@ loop.panel = (function(_, mozL10n) {
       return new Error("Required prop `" + propName +
         "` was not correctly specified in `" + componentName + "`.");
     }
+    return null;
   }
 
   /**
@@ -830,6 +848,8 @@ loop.panel = (function(_, mozL10n) {
       if (this.state.rooms.length > 5) {
         return (<div className="room-list-blur" />);
       }
+
+      return null;
     },
 
     render: function() {
@@ -837,7 +857,9 @@ loop.panel = (function(_, mozL10n) {
         "room-list": true,
         // add extra space to last item so when scrolling to bottom,
         // last item is not covered by the gradient
-        "room-list-add-space": (this.state.rooms.length && this.state.rooms.length > 5)
+        "room-list-add-space": (this.state.rooms.length && this.state.rooms.length > 5),
+        // Indicate there's a pending action to disable opening more rooms.
+        "room-list-pending-creation": this.state.pendingCreation
       });
 
       if (this.state.error) {
@@ -931,8 +953,14 @@ loop.panel = (function(_, mozL10n) {
     },
 
     handleCreateButtonClick: function() {
-      var createRoomAction = new sharedActions.CreateRoom();
+      // check that tab is remote, open about:home if not
+      loop.request("IsTabShareable").then(shareable => {
+        if (!shareable) {
+          loop.request("OpenURL", "about:home");
+        }
+      });
 
+      var createRoomAction = new sharedActions.CreateRoom();
       createRoomAction.urls = [{
         location: this.state.url,
         description: this.state.description,
@@ -1032,7 +1060,7 @@ loop.panel = (function(_, mozL10n) {
     componentDidUpdate: function() {
       if (this.state.showPanel) {
         setTimeout(() => {
-          this.getDOMNode().classList.add("share-panel-open");
+          ReactDOM.findDOMNode(this).classList.add("share-panel-open");
         }, this.constructor.SHOW_PANEL_DELAY);
       }
     },
@@ -1062,12 +1090,12 @@ loop.panel = (function(_, mozL10n) {
 
     handleClosePanel: function() {
       this.props.onSharePanelDisplayChange();
+      this.openRoom();
+      this.closeWindow();
+
       this.setState({
         showPanel: false
       });
-
-      this.openRoom();
-      this.closeWindow();
     },
 
     openRoom: function() {
@@ -1102,8 +1130,91 @@ loop.panel = (function(_, mozL10n) {
             facebookEnabled={this.state.facebookEnabled}
             locationForMetrics="panel"
             roomData={roomData}
-            show={true}
-            socialShareProviders={this.state.socialShareProviders} />
+            show={true} />
+        </div>
+      );
+    }
+  });
+
+  var RenameRoomView = React.createClass({
+    mixins: [sharedMixins.WindowCloseMixin],
+
+    propTypes: {
+      dispatcher: React.PropTypes.instanceOf(loop.Dispatcher).isRequired,
+      roomName: React.PropTypes.string.isRequired,
+      roomToken: React.PropTypes.string.isRequired
+    },
+
+    getInitialState: function() {
+      return { focused: false };
+    },
+
+    componentDidMount: function() {
+      ReactDOM.findDOMNode(this).querySelector("input").focus();
+    },
+
+    handleBlur: function() {
+      this.setState({ focused: false });
+    },
+
+    handleFocus: function() {
+      this.setState({ focused: true });
+      ReactDOM.findDOMNode(this).querySelector("input").select();
+    },
+
+    handleKeyDown: function(event) {
+      if (event.which === 13) {
+        this.handleNameChange();
+      }
+    },
+
+    handleNameChange: function() {
+      let token = this.props.roomToken,
+          name = ReactDOM.findDOMNode(this).querySelector("input").value || "";
+
+      if (name !== this.props.roomName) {
+        this.props.dispatcher.dispatch(
+          new sharedActions.UpdateRoomContext({
+            roomToken: token,
+            newRoomName: name
+          })
+        );
+      }
+
+      this.closeWindow();
+    },
+
+    render: function() {
+      let inputClass = classNames({
+        "input-group": true,
+        "focused": this.state.focused
+      });
+
+      return (
+        <div className="rename-newRoom">
+          <img src="shared/img/helloicon.svg" />
+          <div className="rename-container">
+            <h2 className="rename-header">
+              {mozL10n.get("door_hanger_bye")}
+            </h2>
+            <p className="rename-subheader">
+              {mozL10n.get("door_hanger_return2")}
+            </p>
+            <p className="rename-prompt">
+              {mozL10n.get("door_hanger_current")}
+            </p>
+            <div className={inputClass}>
+              <input className="rename-input"
+                     defaultValue={this.props.roomName}
+                     onBlur={this.handleBlur}
+                     onFocus={this.handleFocus}
+                     onKeyDown={this.handleKeyDown}
+                     type="text" />
+            </div>
+          </div>
+          <Button additionalClass="rename-button"
+                  caption={mozL10n.get("door_hanger_button2")}
+                  onClick={this.handleNameChange} />
         </div>
       );
     }
@@ -1113,13 +1224,17 @@ loop.panel = (function(_, mozL10n) {
    * Panel view.
    */
   var PanelView = React.createClass({
+    mixins: [
+     Backbone.Events,
+     sharedMixins.DocumentVisibilityMixin
+    ],
+
     propTypes: {
       dispatcher: React.PropTypes.instanceOf(loop.Dispatcher).isRequired,
       // Only used for the ui-showcase:
       gettingStartedSeen: React.PropTypes.bool,
       notifications: React.PropTypes.object.isRequired,
-      roomStore:
-        React.PropTypes.instanceOf(loop.store.RoomStore).isRequired,
+      roomStore: React.PropTypes.instanceOf(loop.store.RoomStore).isRequired,
       // Only used for the ui-showcase:
       userProfile: React.PropTypes.object
     },
@@ -1137,6 +1252,7 @@ loop.panel = (function(_, mozL10n) {
         gettingStartedSeen: loop.getStoredRequest(["GetLoopPref", "gettingStarted.latestFTUVersion"]) >= FTU_VERSION,
         multiProcessActive: loop.getStoredRequest(["IsMultiProcessActive"]),
         remoteAutoStart: loop.getStoredRequest(["GetLoopPref", "remote.autostart"]),
+        renameRoom: null,
         sharePanelOpened: false
       };
     },
@@ -1209,8 +1325,37 @@ loop.panel = (function(_, mozL10n) {
       }.bind(this));
     },
 
+    _onClosingNewRoom: function() {
+      // If we close a recently created room, we offer the chance of renaming it
+      let storeState = this.props.roomStore.getStoreState();
+      if (!storeState.closingNewRoom || !storeState.openedRoom) {
+        return;
+      }
+
+      let closedRoom = storeState.rooms.filter(function(room) {
+        // closing room is the last that was opened.
+        return storeState.openedRoom === room.roomToken;
+      })[0];
+
+      this.setState({
+        renameRoom: storeState.closingNewRoom &&
+          {
+            token: storeState.openedRoom,
+            name: _getRoomTitle(closedRoom)
+          }
+      });
+    },
+
+    onDocumentHidden: function() {
+      // consider closing panel any other way than click OK button
+      // or Enter key the same as cancel renaming the room
+      this.setState({ renameRoom: null });
+    },
+
     componentWillMount: function() {
       this.updateServiceErrors();
+      this.listenTo(this.props.roomStore, "change:closingNewRoom",
+                    this._onClosingNewRoom);
     },
 
     componentDidMount: function() {
@@ -1219,6 +1364,7 @@ loop.panel = (function(_, mozL10n) {
 
     componentWillUnmount: function() {
       loop.unsubscribe("LoopStatusChanged", this._onStatusChanged);
+      this.stopListening(this.props.roomStore);
     },
 
     handleContextMenu: function(e) {
@@ -1238,8 +1384,6 @@ loop.panel = (function(_, mozL10n) {
     },
 
     render: function() {
-      var NotificationListView = sharedViews.NotificationListView;
-
       if (this.state.multiProcessActive && !this.state.remoteAutoStart) {
         return (
           <E10sNotSupported onClick={this.launchNonE10sWindow} />
@@ -1258,8 +1402,18 @@ loop.panel = (function(_, mozL10n) {
           </div>
         );
       }
+
       if (!this.state.hasEncryptionKey) {
         return <SignInRequestView />;
+      }
+
+      if (this.state.renameRoom) {
+        return (
+          <RenameRoomView
+            dispatcher={this.props.dispatcher}
+            roomName={this.state.renameRoom.name}
+            roomToken={this.state.renameRoom.token} />
+        );
       }
 
       var cssClasses = classNames({
@@ -1278,7 +1432,7 @@ loop.panel = (function(_, mozL10n) {
             <RoomList dispatcher={this.props.dispatcher}
               store={this.props.roomStore} />
             <div className="footer">
-                <AccountLink userProfile={this.props.userProfile || this.state.userProfile}/>
+                <AccountLink userProfile={this.props.userProfile || this.state.userProfile} />
               <div className="signin-details">
                 <SettingsDropdown />
               </div>
@@ -1288,6 +1442,89 @@ loop.panel = (function(_, mozL10n) {
               onSharePanelDisplayChange={this.toggleSharePanelState}
               store={this.props.roomStore} />
           </div>
+        </div>
+      );
+    }
+  });
+
+  /**
+   * Notification view.
+   */
+  var NotificationView = React.createClass({
+    mixins: [Backbone.Events],
+
+    propTypes: {
+      notification: React.PropTypes.object.isRequired
+    },
+
+    render: function() {
+      var notification = this.props.notification;
+      return (
+        <div className="notificationContainer">
+          <div className={"alert alert-" + notification.get("level")}>
+            <span className="message">{notification.get("message")}</span>
+          </div>
+          <div className={"detailsBar details-" + notification.get("level")}
+               hidden={!notification.get("details")}>
+            <button className="detailsButton btn-info"
+                    hidden={!notification.get("detailsButtonLabel") || !notification.get("detailsButtonCallback")}
+                    onClick={notification.get("detailsButtonCallback")}>
+              {notification.get("detailsButtonLabel")}
+            </button>
+            <span className="details">{notification.get("details")}</span>
+          </div>
+        </div>
+      );
+    }
+  });
+
+  /**
+   * Notification list view.
+   */
+  var NotificationListView = React.createClass({
+    mixins: [Backbone.Events, sharedMixins.DocumentVisibilityMixin],
+
+    propTypes: {
+      clearOnDocumentHidden: React.PropTypes.bool,
+      notifications: React.PropTypes.object.isRequired
+    },
+
+    getDefaultProps: function() {
+      return { clearOnDocumentHidden: false };
+    },
+
+    componentDidMount: function() {
+      this.listenTo(this.props.notifications, "reset add remove", function() {
+        this.forceUpdate();
+      });
+    },
+
+    componentWillUnmount: function() {
+      this.stopListening(this.props.notifications);
+    },
+
+    /**
+     * Provided by DocumentVisibilityMixin. Clears notifications stack when the
+     * current document is hidden if the clearOnDocumentHidden prop is set to
+     * true and the collection isn't empty.
+     */
+    onDocumentHidden: function() {
+      if (this.props.clearOnDocumentHidden &&
+          this.props.notifications.length > 0) {
+        // Note: The `silent` option prevents the `reset` event to be triggered
+        // here, preventing the UI to "jump" a little because of the event
+        // callback being processed in another tick (I think).
+        this.props.notifications.reset([], { silent: true });
+        this.forceUpdate();
+      }
+    },
+
+    render: function() {
+      return (
+        <div className="messages">
+          {this.props.notifications.map(function(notification, key) {
+            return <NotificationView key={key} notification={notification} />;
+          })}
         </div>
       );
     }
@@ -1314,7 +1551,8 @@ loop.panel = (function(_, mozL10n) {
       ["IsMultiProcessActive"]
     ];
 
-    return loop.requestMulti.apply(null, requests.concat(prefetch)).then(function(results) {
+    return loop.requestMulti.apply(null, requests.concat(prefetch))
+      .then(function(results) {
       // `requestIdx` is keyed off the order of the `requests` and `prefetch`
       // arrays. Be careful to update both when making changes.
       var requestIdx = 0;
@@ -1342,14 +1580,14 @@ loop.panel = (function(_, mozL10n) {
         loop.storeRequest(req, results[++requestIdx]);
       });
 
-      var notifications = new sharedModels.NotificationCollection();
+      var notifications = new panelModels.NotificationCollection();
       var dispatcher = new loop.Dispatcher();
       var roomStore = new loop.store.RoomStore(dispatcher, {
         notifications: notifications,
         constants: constants
       });
 
-      React.render(<PanelView
+      ReactDOM.render(<PanelView
         dispatcher={dispatcher}
         notifications={notifications}
         roomStore={roomStore} />, document.querySelector("#main"));
@@ -1373,7 +1611,9 @@ loop.panel = (function(_, mozL10n) {
     GettingStartedView: GettingStartedView,
     init: init,
     NewRoomView: NewRoomView,
+    NotificationListView: NotificationListView,
     PanelView: PanelView,
+    RenameRoomView: RenameRoomView,
     RoomEntry: RoomEntry,
     RoomEntryContextButtons: RoomEntryContextButtons,
     RoomList: RoomList,
@@ -1382,6 +1622,6 @@ loop.panel = (function(_, mozL10n) {
     SignInRequestView: SignInRequestView,
     ToSView: ToSView
   };
-})(_, document.mozL10n);
+})(_, document.mozL10n));
 
 document.addEventListener("DOMContentLoaded", loop.panel.init);

@@ -14,6 +14,7 @@ describe("loop.panel", function() {
   var requests = [];
   var roomData, roomData2, roomData3, roomData4, roomData5, roomData6;
   var roomList, roomName;
+  var sharedModels = loop.panel.models;
 
   beforeEach(function() {
     sandbox = LoopMochaUtils.createSandbox();
@@ -34,12 +35,15 @@ describe("loop.panel", function() {
       close: sandbox.stub(),
       addEventListener: function() {},
       removeEventListener: function() {},
-      document: { addEventListener: function() {} },
+      document: {
+        addEventListener: function() {},
+        removeEventListener: function() {}
+      },
       setTimeout: function(callback) { callback(); }
     };
     loop.shared.mixins.setRootObject(fakeWindow);
 
-    notifications = new loop.shared.models.NotificationCollection();
+    notifications = new loop.panel.models.NotificationCollection();
 
     LoopMochaUtils.stubLoopRequest(requestStubs = {
       GetDoNotDisturb: function() { return true; },
@@ -77,6 +81,7 @@ describe("loop.panel", function() {
       GetHasEncryptionKey: function() { return true; },
       HangupAllChatWindows: function() {},
       IsMultiProcessActive: sinon.stub(),
+      IsTabShareable: sinon.stub(),
       LoginToFxA: sinon.stub(),
       LogoutFromFxA: sinon.stub(),
       NotifyUITour: sinon.stub(),
@@ -221,7 +226,9 @@ describe("loop.panel", function() {
       },
       locale: "en-US"
     });
-    sandbox.stub(document.mozL10n, "get").returns("Fake title");
+    sandbox.stub(document.mozL10n, "get", function(stringName) {
+      return stringName;
+    });
   });
 
   afterEach(function() {
@@ -232,7 +239,7 @@ describe("loop.panel", function() {
 
   describe("#init", function() {
     beforeEach(function() {
-      sandbox.stub(React, "render");
+      sandbox.stub(ReactDOM, "render");
       sandbox.stub(document.mozL10n, "initialize");
     });
 
@@ -246,8 +253,8 @@ describe("loop.panel", function() {
     it("should render the panel view", function() {
       loop.panel.init();
 
-      sinon.assert.calledOnce(React.render);
-      sinon.assert.calledWith(React.render,
+      sinon.assert.calledOnce(ReactDOM.render);
+      sinon.assert.calledWith(ReactDOM.render,
         sinon.match(function(value) {
           return TestUtils.isCompositeComponentElement(value,
             loop.panel.PanelView);
@@ -294,8 +301,26 @@ describe("loop.panel", function() {
       var view = TestUtils.renderIntoDocument(
         React.createElement(loop.panel.SettingsDropdown));
 
-      expect(view.getDOMNode().querySelectorAll(".entry-settings-account"))
+      expect(ReactDOM.findDOMNode(view).querySelectorAll(".entry-settings-account"))
         .to.have.length.of(0);
+    });
+
+    it("should reset renaming state when closing the panel", function() {
+      var view = createTestPanelView();
+      view.setState({
+        renameRoom: {
+          name: "fakeName",
+          token: "fakeToken"
+        }
+      });
+
+      view._onDocumentVisibilityChanged({
+        target: {
+          hidden: true
+        }
+      });
+
+      expect(view.state.renameRoom).eql(null);
     });
 
     describe("AccountLink", function() {
@@ -307,7 +332,7 @@ describe("loop.panel", function() {
           });
 
           var view = createTestPanelView();
-          TestUtils.Simulate.click(view.getDOMNode().querySelector(".signin-link > a"));
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(view).querySelector(".signin-link > a"));
 
           sinon.assert.calledOnce(stub);
         });
@@ -315,7 +340,7 @@ describe("loop.panel", function() {
       it("should close the panel after clicking the link", function() {
         var view = createTestPanelView();
 
-        TestUtils.Simulate.click(view.getDOMNode().querySelector(".signin-link > a"));
+        TestUtils.Simulate.click(ReactDOM.findDOMNode(view).querySelector(".signin-link > a"));
 
         sinon.assert.calledOnce(fakeWindow.close);
       });
@@ -324,7 +349,7 @@ describe("loop.panel", function() {
         var prevent = sandbox.stub();
         var view = createTestPanelView();
         TestUtils.Simulate.contextMenu(
-          view.getDOMNode(),
+          ReactDOM.findDOMNode(view),
           { preventDefault: prevent }
         );
         sinon.assert.calledOnce(prevent);
@@ -332,8 +357,7 @@ describe("loop.panel", function() {
 
       it("should warn when user profile is different from {} or null",
          function() {
-          var warnstub = sandbox.stub(console, "warn");
-
+          var warnstub = sandbox.stub(console, "error");
           TestUtils.renderIntoDocument(React.createElement(
             loop.panel.AccountLink, {
               userProfile: []
@@ -386,9 +410,9 @@ describe("loop.panel", function() {
            function() {
              var view = mountTestComponent();
 
-             expect(view.getDOMNode().querySelectorAll(".entry-settings-signout"))
+             expect(ReactDOM.findDOMNode(view).querySelectorAll(".entry-settings-signout"))
                .to.have.length.of(0);
-             expect(view.getDOMNode().querySelectorAll(".entry-settings-signin"))
+             expect(ReactDOM.findDOMNode(view).querySelectorAll(".entry-settings-signin"))
                .to.have.length.of(1);
            });
 
@@ -396,14 +420,14 @@ describe("loop.panel", function() {
            function() {
              var view = mountTestComponent();
 
-             expect(view.getDOMNode().querySelectorAll(".entry-settings-account"))
+             expect(ReactDOM.findDOMNode(view).querySelectorAll(".entry-settings-account"))
                .to.have.length.of(0);
            });
 
         it("should sign in the user on click when unauthenticated", function() {
           var view = mountTestComponent();
 
-          TestUtils.Simulate.click(view.getDOMNode()
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(view)
                                      .querySelector(".entry-settings-signin"));
 
           sinon.assert.calledOnce(requestStubs.LoginToFxA);
@@ -412,7 +436,7 @@ describe("loop.panel", function() {
         it("should close the menu on clicking sign in", function() {
           var view = mountTestComponent();
 
-          TestUtils.Simulate.click(view.getDOMNode()
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(view)
                                      .querySelector(".entry-settings-signin"));
 
           expect(view.state.showMenu).eql(false);
@@ -421,7 +445,7 @@ describe("loop.panel", function() {
         it("should close the panel on clicking sign in", function() {
           var view = mountTestComponent();
 
-          TestUtils.Simulate.click(view.getDOMNode()
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(view)
                                      .querySelector(".entry-settings-signin"));
 
           sinon.assert.calledOnce(fakeWindow.close);
@@ -437,27 +461,27 @@ describe("loop.panel", function() {
         });
 
         it("should show a signout entry when user is authenticated", function() {
-          expect(view.getDOMNode().querySelectorAll(".entry-settings-signout"))
+          expect(ReactDOM.findDOMNode(view).querySelectorAll(".entry-settings-signout"))
               .to.have.length.of(1);
-          expect(view.getDOMNode().querySelectorAll(".entry-settings-signin"))
+          expect(ReactDOM.findDOMNode(view).querySelectorAll(".entry-settings-signin"))
               .to.have.length.of(0);
         });
 
         it("should show an account entry when user is authenticated", function() {
-          expect(view.getDOMNode().querySelectorAll(".entry-settings-account"))
+          expect(ReactDOM.findDOMNode(view).querySelectorAll(".entry-settings-account"))
               .to.have.length.of(1);
         });
 
         it("should open the FxA settings when the account entry is clicked",
             function() {
-              TestUtils.Simulate.click(view.getDOMNode()
+              TestUtils.Simulate.click(ReactDOM.findDOMNode(view)
                                          .querySelector(".entry-settings-account"));
 
               sinon.assert.calledOnce(openFxASettingsStub);
             });
 
         it("should sign out the user on click when authenticated", function() {
-          TestUtils.Simulate.click(view.getDOMNode()
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(view)
                                      .querySelector(".entry-settings-signout"));
 
           sinon.assert.calledOnce(requestStubs.LogoutFromFxA);
@@ -470,14 +494,14 @@ describe("loop.panel", function() {
 
           view.setState({ showMenu: true });
 
-          TestUtils.Simulate.click(view.getDOMNode()
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(view)
                                      .querySelector(".entry-settings-signout"));
 
           expect(view.state.showMenu).eql(false);
         });
 
         it("should not close the panel on clicking sign out", function() {
-          TestUtils.Simulate.click(view.getDOMNode()
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(view)
                                      .querySelector(".entry-settings-signout"));
 
           sinon.assert.notCalled(fakeWindow.close);
@@ -491,12 +515,24 @@ describe("loop.panel", function() {
           view = mountTestComponent();
         });
 
+        it("should show a message to turn notifications off when they are on", function() {
+          LoopMochaUtils.stubLoopRequest({
+            GetDoNotDisturb: function() { return false; }
+          });
+
+          view.showDropdownMenu();
+
+          var menuitem = ReactDOM.findDOMNode(view).querySelector(".entry-settings-notifications");
+
+          expect(menuitem.textContent).eql("settings_menu_item_turnnotificationsoff");
+        });
+
         it("should toggle mozLoop.doNotDisturb to false", function() {
           var stub = sinon.stub();
           LoopMochaUtils.stubLoopRequest({
             SetDoNotDisturb: stub
           });
-          var toggleNotificationsMenuOption = view.getDOMNode()
+          var toggleNotificationsMenuOption = ReactDOM.findDOMNode(view)
                                                 .querySelector(".entry-settings-notifications");
 
           TestUtils.Simulate.click(toggleNotificationsMenuOption);
@@ -505,13 +541,25 @@ describe("loop.panel", function() {
           sinon.assert.calledWithExactly(stub, false);
         });
 
+        it("should show a message to turn notifications on when they are off", function() {
+          LoopMochaUtils.stubLoopRequest({
+            GetDoNotDisturb: function() { return true; }
+          });
+
+          view.showDropdownMenu();
+
+          var menuitem = ReactDOM.findDOMNode(view).querySelector(".entry-settings-notifications");
+
+          expect(menuitem.textContent).eql("settings_menu_item_turnnotificationson");
+        });
+
         it("should toggle mozLoop.doNotDisturb to true", function() {
           var stub = sinon.stub();
           LoopMochaUtils.stubLoopRequest({
             GetDoNotDisturb: function() { return false; },
             SetDoNotDisturb: stub
           });
-          var toggleNotificationsMenuOption = view.getDOMNode()
+          var toggleNotificationsMenuOption = ReactDOM.findDOMNode(view)
                                                 .querySelector(".entry-settings-notifications");
 
           TestUtils.Simulate.click(toggleNotificationsMenuOption);
@@ -521,7 +569,7 @@ describe("loop.panel", function() {
         });
 
         it("should close dropdown menu", function() {
-          var toggleNotificationsMenuOption = view.getDOMNode()
+          var toggleNotificationsMenuOption = ReactDOM.findDOMNode(view)
                                                 .querySelector(".entry-settings-notifications");
 
           view.setState({ showMenu: true });
@@ -558,7 +606,7 @@ describe("loop.panel", function() {
         view = mountTestComponent();
 
         TestUtils.Simulate
-          .click(view.getDOMNode().querySelector(".entry-settings-help"));
+          .click(ReactDOM.findDOMNode(view).querySelector(".entry-settings-help"));
 
         sinon.assert.calledOnce(requestStubs.OpenURL);
         sinon.assert.calledWithExactly(requestStubs.OpenURL, supportUrl);
@@ -568,7 +616,7 @@ describe("loop.panel", function() {
         view = mountTestComponent();
 
         TestUtils.Simulate
-          .click(view.getDOMNode().querySelector(".entry-settings-help"));
+          .click(ReactDOM.findDOMNode(view).querySelector(".entry-settings-help"));
 
         sinon.assert.calledOnce(fakeWindow.close);
       });
@@ -599,7 +647,7 @@ describe("loop.panel", function() {
         view = mountTestComponent();
 
         TestUtils.Simulate
-          .click(view.getDOMNode().querySelector(".entry-settings-feedback"));
+          .click(ReactDOM.findDOMNode(view).querySelector(".entry-settings-feedback"));
 
         sinon.assert.calledOnce(requestStubs.OpenURL);
         sinon.assert.calledWithExactly(requestStubs.OpenURL, feedbackUrl);
@@ -609,7 +657,7 @@ describe("loop.panel", function() {
         view = mountTestComponent();
 
         TestUtils.Simulate
-          .click(view.getDOMNode().querySelector(".entry-settings-feedback"));
+          .click(ReactDOM.findDOMNode(view).querySelector(".entry-settings-feedback"));
 
         sinon.assert.calledOnce(fakeWindow.close);
       });
@@ -633,7 +681,6 @@ describe("loop.panel", function() {
           TestUtils.findRenderedComponentWithType(view, loop.panel.ToSView);
         }).to.not.Throw();
       });
-
 
       it("should render a GettingStarted view when gettingStarted.latestFTUVersion is less than FTU_VERSION", function() {
         loop.storedRequests["GetLoopPref|gettingStarted.latestFTUVersion"] = 0;
@@ -686,6 +733,53 @@ describe("loop.panel", function() {
         }).to.not.Throw();
       });
 
+      it("should render an RenameRoomView when a new room is closed",
+        function() {
+        roomStore.setStoreState({
+          openedRoom: "fakeToken"
+        });
+
+        var view = createTestPanelView();
+        roomStore.setStoreState({
+          closingNewRoom: true
+        });
+
+        expect(function() {
+          TestUtils.findRenderedComponentWithType(view, loop.panel.RenameRoomView);
+        }).to.not.Throw();
+      });
+
+      it("should not render an RenameRoomView when no room open",
+        function() {
+        roomStore.setStoreState({
+          openedRoom: null
+        });
+
+        var view = createTestPanelView();
+        roomStore.setStoreState({
+          closingNewRoom: true
+        });
+
+        expect(function() {
+          TestUtils.findRenderedComponentWithType(view, loop.panel.RenameRoomView);
+        }).to.Throw();
+      });
+
+      it("should not render an RenameRoomView when no room closing",
+        function() {
+        roomStore.setStoreState({
+          openedRoom: "fakeToken"
+        });
+
+        var view = createTestPanelView();
+        roomStore.setStoreState({
+          closingNewRoom: false
+        });
+
+        expect(function() {
+          TestUtils.findRenderedComponentWithType(view, loop.panel.RenameRoomView);
+        }).to.Throw();
+      });
     });
 
     describe("GettingStartedView", function() {
@@ -694,7 +788,7 @@ describe("loop.panel", function() {
 
         var view = createTestPanelView();
 
-        TestUtils.Simulate.click(view.getDOMNode().querySelector(".fte-get-started-button"));
+        TestUtils.Simulate.click(ReactDOM.findDOMNode(view).querySelector(".fte-get-started-button"));
 
         sinon.assert.calledOnce(requestStubs.OpenGettingStartedTour);
       });
@@ -751,7 +845,7 @@ describe("loop.panel", function() {
 
       it("should toggle the menu when the button is clicked", function() {
         var prevState = view.state.showMenu;
-        var node = view.refs.contextActions.refs["menu-button"].getDOMNode();
+        var node = ReactDOM.findDOMNode(view.refs.contextActions.refs["menu-button"]);
 
         TestUtils.Simulate.click(node, fakeEvent);
 
@@ -791,7 +885,7 @@ describe("loop.panel", function() {
 
       describe("OpenRoom", function() {
         it("should dispatch an OpenRoom action when button is clicked", function() {
-          TestUtils.Simulate.click(roomEntry.refs.roomEntry.getDOMNode());
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(roomEntry.refs.roomEntry));
 
           sinon.assert.calledOnce(dispatcher.dispatch);
           sinon.assert.calledWithExactly(dispatcher.dispatch,
@@ -819,13 +913,13 @@ describe("loop.panel", function() {
             room: new loop.store.Room(roomData)
           });
 
-          TestUtils.Simulate.click(roomEntry.refs.roomEntry.getDOMNode());
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(roomEntry.refs.roomEntry));
 
           sinon.assert.notCalled(dispatcher.dispatch);
         });
 
         it("should open a new tab with the room context if it is not the same as the currently open tab", function() {
-          TestUtils.Simulate.click(roomEntry.refs.roomEntry.getDOMNode());
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(roomEntry.refs.roomEntry));
           sinon.assert.calledOnce(openURLStub);
           sinon.assert.calledWithExactly(openURLStub, "http://testurl.com");
         });
@@ -858,7 +952,7 @@ describe("loop.panel", function() {
           });
           var ftuURL = requestStubs.GettingStartedURL() + "?noopenpanel=1";
 
-          TestUtils.Simulate.click(roomEntry.refs.roomEntry.getDOMNode());
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(roomEntry.refs.roomEntry));
 
           sinon.assert.calledOnce(openURLStub);
           sinon.assert.calledWithExactly(openURLStub, ftuURL);
@@ -880,7 +974,7 @@ describe("loop.panel", function() {
             room: new loop.store.Room(roomData)
           });
 
-          TestUtils.Simulate.click(roomEntry.refs.roomEntry.getDOMNode());
+          TestUtils.Simulate.click(ReactDOM.findDOMNode(roomEntry.refs.roomEntry));
           sinon.assert.notCalled(openURLStub);
         });
       });
@@ -899,7 +993,7 @@ describe("loop.panel", function() {
       it("should display a default context indicator if the room doesn't have any", function() {
         roomEntry = mountEntryForContext();
 
-        expect(roomEntry.getDOMNode().querySelector(".room-entry-context-item")).not.eql(null);
+        expect(ReactDOM.findDOMNode(roomEntry).querySelector(".room-entry-context-item")).not.eql(null);
       });
 
       it("should a context indicator if the room specifies context", function() {
@@ -911,7 +1005,7 @@ describe("loop.panel", function() {
 
         roomEntry = mountEntryForContext();
 
-        expect(roomEntry.getDOMNode().querySelector(".room-entry-context-item")).not.eql(null);
+        expect(ReactDOM.findDOMNode(roomEntry).querySelector(".room-entry-context-item")).not.eql(null);
       });
 
       it("should call mozLoop.openURL to open a new url", function() {
@@ -923,7 +1017,7 @@ describe("loop.panel", function() {
 
         roomEntry = mountEntryForContext();
 
-        TestUtils.Simulate.click(roomEntry.getDOMNode().querySelector("a"));
+        TestUtils.Simulate.click(ReactDOM.findDOMNode(roomEntry).querySelector("a"));
 
         sinon.assert.calledOnce(requestStubs.OpenURL);
         sinon.assert.calledWithExactly(requestStubs.OpenURL, "http://invalid/");
@@ -938,13 +1032,13 @@ describe("loop.panel", function() {
 
         roomEntry = mountEntryForContext();
 
-        TestUtils.Simulate.click(roomEntry.getDOMNode().querySelector("a"));
+        TestUtils.Simulate.click(ReactDOM.findDOMNode(roomEntry).querySelector("a"));
 
         sinon.assert.calledOnce(fakeWindow.close);
       });
     });
 
-    describe("Room name updated", function() {
+    describe("Editing Room Name", function() {
       var roomEntry;
 
       beforeEach(function() {
@@ -953,21 +1047,6 @@ describe("loop.panel", function() {
           isOpenedRoom: false,
           room: new loop.store.Room(roomData)
         });
-      });
-
-      it("should update room name", function() {
-        var updatedRoom = new loop.store.Room(_.extend({}, roomData, {
-          decryptedContext: {
-            roomName: "New room name"
-          },
-          ctime: new Date().getTime()
-        }));
-
-        roomEntry.setProps({ room: updatedRoom });
-
-        expect(
-          roomEntry.getDOMNode().textContent)
-        .eql("New room name");
       });
 
       it("should enter in edit mode when edit button is clicked", function() {
@@ -981,7 +1060,7 @@ describe("loop.panel", function() {
           editMode: true
         });
 
-        expect(roomEntry.getDOMNode().querySelector("input")).not.eql(null);
+        expect(ReactDOM.findDOMNode(roomEntry).querySelector("input")).not.eql(null);
       });
 
       it("should exit edit mode and update the room name when input lose focus", function() {
@@ -991,7 +1070,7 @@ describe("loop.panel", function() {
 
         sandbox.stub(dispatcher, "dispatch");
 
-        var input = roomEntry.getDOMNode().querySelector("input");
+        var input = ReactDOM.findDOMNode(roomEntry).querySelector("input");
         input.value = "fakeName";
         TestUtils.Simulate.change(input);
         TestUtils.Simulate.blur(input);
@@ -1011,7 +1090,7 @@ describe("loop.panel", function() {
 
         sandbox.stub(dispatcher, "dispatch");
 
-        var input = roomEntry.getDOMNode().querySelector("input");
+        var input = ReactDOM.findDOMNode(roomEntry).querySelector("input");
         input.value = "fakeName";
         TestUtils.Simulate.change(input);
         TestUtils.Simulate.keyDown(input, {
@@ -1030,23 +1109,22 @@ describe("loop.panel", function() {
 
     describe("Room name priority", function() {
       var roomEntry;
-      beforeEach(function() {
-        roomEntry = mountRoomEntry({
-          dispatcher: dispatcher,
-          isOpenedRoom: false,
-          room: new loop.store.Room(roomData)
-        });
-      });
 
-      function setDecryptedContext(newDecryptedContext) {
-        return new loop.store.Room(_.extend({}, roomData, {
-          decryptedContext: newDecryptedContext,
+      function mountRoomEntryWithData(decryptedContext) {
+        let room = new loop.store.Room(_.extend({}, roomData, {
+          decryptedContext: decryptedContext,
           ctime: new Date().getTime()
         }));
+
+        return mountRoomEntry({
+          dispatcher: dispatcher,
+          isOpenedRoom: false,
+          room: room
+        });
       }
 
       it("should use room name by default", function() {
-        var updatedRoom = setDecryptedContext({
+        roomEntry = mountRoomEntryWithData({
           roomName: "Room name",
           urls: [
             {
@@ -1056,13 +1134,11 @@ describe("loop.panel", function() {
           ]
         });
 
-        roomEntry.setProps({ room: updatedRoom });
-
-        expect(roomEntry.getDOMNode().textContent).eql("Room name");
+        expect(ReactDOM.findDOMNode(roomEntry).textContent).eql("Room name");
       });
 
       it("should use context title when there's no room title", function() {
-        var updatedRoom = setDecryptedContext({
+        roomEntry = mountRoomEntryWithData({
           urls: [
             {
               description: "Website title",
@@ -1071,13 +1147,11 @@ describe("loop.panel", function() {
           ]
         });
 
-        roomEntry.setProps({ room: updatedRoom });
-
-        expect(roomEntry.getDOMNode().textContent).eql("Website title");
+        expect(ReactDOM.findDOMNode(roomEntry).textContent).eql("Website title");
       });
 
       it("should use website url when there's no room title nor website", function() {
-        var updatedRoom = setDecryptedContext({
+        roomEntry = mountRoomEntryWithData({
           urls: [
             {
               location: "https://fakeurl.com"
@@ -1085,9 +1159,90 @@ describe("loop.panel", function() {
           ]
         });
 
-        roomEntry.setProps({ room: updatedRoom });
+        expect(ReactDOM.findDOMNode(roomEntry).textContent).eql("https://fakeurl.com");
+      });
+    });
 
-        expect(roomEntry.getDOMNode().textContent).eql("https://fakeurl.com");
+    describe("Room entry click", function() {
+      var roomEntry;
+
+      beforeEach(function() {
+        // Stub to prevent warnings due to stores not being set up to handle
+        // the actions we are triggering.
+        sandbox.stub(dispatcher, "dispatch");
+      });
+
+      it("should require MetaData", function() {
+        roomEntry = mountRoomEntry({
+          isOpenedRoom: false,
+          room: new loop.store.Room(roomData)
+        });
+        roomEntry.handleClickEntry(fakeEvent);
+
+        sinon.assert.calledOnce(requestStubs.GetSelectedTabMetadata);
+      });
+
+      it("should close the Panel", function() {
+        roomEntry = mountRoomEntry({
+          isOpenedRoom: false,
+          room: new loop.store.Room(roomData)
+        });
+        sandbox.stub(roomEntry, "closeWindow");
+        roomEntry.handleClickEntry(fakeEvent);
+
+        sinon.assert.calledOnce(roomEntry.closeWindow);
+      });
+
+      it("should dispatch the OpenRoom action", function() {
+        roomEntry = mountRoomEntry({
+          isOpenedRoom: false,
+          room: new loop.store.Room(roomData)
+        });
+        roomEntry.handleClickEntry(fakeEvent);
+
+        sinon.assert.calledOnce(dispatcher.dispatch);
+        sinon.assert.calledWithExactly(dispatcher.dispatch,
+                                       new sharedActions.OpenRoom({
+                                        roomToken: roomData.roomToken
+                                       }));
+      });
+
+      // if current URL same as ROOM, dont open TAB
+      it("should NOT open new tab if we already in same URL", function() {
+        requestStubs.GetSelectedTabMetadata.returns({
+          url: "fakeURL"
+        });
+        roomData.decryptedContext.urls = [{
+          location: "fakeURL"
+        }];
+
+        roomEntry = mountRoomEntry({
+          isOpenedRoom: false,
+          room: new loop.store.Room(roomData)
+        });
+
+        roomEntry.handleClickEntry(fakeEvent);
+        sinon.assert.calledOnce(requestStubs.GetSelectedTabMetadata);
+        sinon.assert.notCalled(requestStubs.OpenURL);
+      });
+
+      it("should open new tab if different URL", function() {
+        requestStubs.GetSelectedTabMetadata.returns({
+          url: "notTheSameURL"
+        });
+        roomData.decryptedContext.urls = [{
+          location: "fakeURL"
+        }];
+
+        roomEntry = mountRoomEntry({
+          isOpenedRoom: false,
+          room: new loop.store.Room(roomData)
+        });
+
+        roomEntry.handleClickEntry(fakeEvent);
+        sinon.assert.calledOnce(requestStubs.GetSelectedTabMetadata);
+        sinon.assert.calledOnce(requestStubs.OpenURL);
+        sinon.assert.calledWithExactly(requestStubs.OpenURL, "fakeURL");
       });
     });
   });
@@ -1143,7 +1298,8 @@ describe("loop.panel", function() {
 
     it("should have FTE element and not room-list element when room-list is empty", function() {
       var view = createTestComponent();
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
+
       expect(node.querySelectorAll(".fte-get-started-content").length).to.eql(1);
       expect(node.querySelectorAll(".room-list").length).to.eql(0);
     });
@@ -1152,7 +1308,18 @@ describe("loop.panel", function() {
       var view = createTestComponent();
       roomStore.setStoreState({ pendingInitialRetrieval: true });
 
-      expect(view.getDOMNode().querySelectorAll(".room-list-loading").length).to.eql(1);
+      expect(ReactDOM.findDOMNode(view).querySelectorAll(".room-list-loading").length).to.eql(1);
+    });
+
+    it("should disable the room list after room creation", function() {
+      // Simulate that the user has clicked the browse button with other rooms.
+      var view = createTestComponent();
+      roomStore.setStoreState({
+        pendingCreation: true,
+        rooms: roomList
+      });
+
+      expect(ReactDOM.findDOMNode(view).querySelectorAll(".room-list-pending-creation").length).to.eql(1);
     });
 
     it("should show multiple rooms in list with no opened room", function() {
@@ -1160,7 +1327,7 @@ describe("loop.panel", function() {
 
       var view = createTestComponent();
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
       expect(node.querySelectorAll(".room-opened").length).to.eql(0);
       expect(node.querySelectorAll(".room-entry").length).to.eql(2);
     });
@@ -1178,7 +1345,7 @@ describe("loop.panel", function() {
 
       var view = createTestComponent();
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
       expect(node.querySelectorAll(".room-entry").length).to.eql(6);
       expect(node.querySelectorAll(".room-list-blur").length).to.eql(1);
     });
@@ -1195,7 +1362,7 @@ describe("loop.panel", function() {
 
       var view = createTestComponent();
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
       expect(node.querySelectorAll(".room-entry").length).to.eql(5);
       expect(node.querySelectorAll(".room-list-blur").length).to.eql(0);
     });
@@ -1206,7 +1373,7 @@ describe("loop.panel", function() {
 
       var view = createTestComponent();
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
       expect(node.querySelectorAll(".room-entry").length).to.eql(0);
       expect(node.querySelectorAll(".room-list-blur").length).to.eql(0);
     });
@@ -1216,7 +1383,7 @@ describe("loop.panel", function() {
 
       var view = createTestComponent();
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
       expect(node.querySelectorAll(".room-opened").length).to.eql(1);
       expect(node.querySelectorAll(".room-entry").length).to.eql(1);
       expect(node.querySelectorAll(".room-opened h2")[0].textContent).to.equal(roomName);
@@ -1247,7 +1414,7 @@ describe("loop.panel", function() {
 
       var view = createTestComponent();
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
       expect(node.querySelector(".room-entry h2").textContent).to.equal("Page Title");
     });
 
@@ -1276,7 +1443,7 @@ describe("loop.panel", function() {
 
       var view = createTestComponent();
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
       expect(node.querySelector(".room-entry h2").textContent).to.equal("http://example.com");
     });
 
@@ -1305,8 +1472,8 @@ describe("loop.panel", function() {
 
       var view = createTestComponent();
 
-      var node = view.getDOMNode();
-      expect(node.querySelector(".room-entry h2").textContent).to.equal("Fake title");
+      var node = ReactDOM.findDOMNode(view);
+      expect(node.querySelector(".room-entry h2").textContent).to.equal("room_name_untitled_page");
     });
 
     describe("computeAdjustedTopPosition", function() {
@@ -1316,7 +1483,6 @@ describe("loop.panel", function() {
 
           expect(topPosTest).to.equal(false);
         });
-
     });
   });
 
@@ -1346,6 +1512,49 @@ describe("loop.panel", function() {
         }, extraProps)));
     }
 
+    it("should open new tab when Starting Conversation on a non-remote tab",
+       function() {
+      LoopMochaUtils.stubLoopRequest({
+        IsTabShareable: function() {
+          return false;
+        }
+      });
+
+      var view = createTestComponent({
+        inRoom: false,
+        pendingOperation: false
+      });
+      // Simulate being visible
+      view.onDocumentVisible();
+      // Simulate click on button
+      var node = ReactDOM.findDOMNode(view);
+      TestUtils.Simulate.click(node.querySelector(".new-room-button"));
+
+      sinon.assert.calledOnce(requestStubs.OpenURL);
+      sinon.assert.calledWithExactly(requestStubs.OpenURL, "about:home");
+    });
+
+    it("should stay in same tab when Starting Conversation on a remote tab",
+       function() {
+      LoopMochaUtils.stubLoopRequest({
+        IsTabShareable: function() {
+          return true;
+        }
+      });
+
+      var view = createTestComponent({
+        inRoom: false,
+        pendingOperation: false
+      });
+      // Simulate being visible
+      view.onDocumentVisible();
+      // Simulate click on button
+      var node = ReactDOM.findDOMNode(view);
+      TestUtils.Simulate.click(node.querySelector(".new-room-button"));
+
+      sinon.assert.notCalled(requestStubs.OpenURL);
+    });
+
     it("should dispatch a CreateRoom action with context when clicking on the " +
        "Start a conversation button", function() {
       var favicon = "data:image/x-icon;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
@@ -1369,7 +1578,7 @@ describe("loop.panel", function() {
       // Simulate being visible
       view.onDocumentVisible();
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
 
       TestUtils.Simulate.click(node.querySelector(".new-room-button"));
 
@@ -1389,7 +1598,7 @@ describe("loop.panel", function() {
           pendingOperation: true
         });
 
-        var buttonNode = view.getDOMNode().querySelector(".new-room-button[disabled]");
+        var buttonNode = ReactDOM.findDOMNode(view).querySelector(".new-room-button[disabled]");
         expect(buttonNode).to.not.equal(null);
       });
 
@@ -1399,7 +1608,7 @@ describe("loop.panel", function() {
         pendingOperation: false
       });
 
-      var buttonNode = view.getDOMNode().querySelector(".new-room-button");
+      var buttonNode = ReactDOM.findDOMNode(view).querySelector(".new-room-button");
       expect(buttonNode).to.equal(null);
     });
 
@@ -1409,7 +1618,7 @@ describe("loop.panel", function() {
         pendingOperation: false
       });
 
-      var buttonNode = view.getDOMNode().querySelector(".stop-sharing-button");
+      var buttonNode = ReactDOM.findDOMNode(view).querySelector(".stop-sharing-button");
       expect(buttonNode).to.not.equal(null);
     });
 
@@ -1424,7 +1633,7 @@ describe("loop.panel", function() {
         pendingOperation: false
       });
 
-      var node = view.getDOMNode();
+      var node = ReactDOM.findDOMNode(view);
       TestUtils.Simulate.click(node.querySelector(".stop-sharing-button"));
 
       sinon.assert.calledOnce(stub);
@@ -1442,7 +1651,7 @@ describe("loop.panel", function() {
     it("should call login with forced re-authentication when sign-in is clicked", function() {
       view = mountTestComponent();
 
-      TestUtils.Simulate.click(view.getDOMNode().querySelector("button"));
+      TestUtils.Simulate.click(ReactDOM.findDOMNode(view).querySelector("button"));
 
       sinon.assert.calledOnce(requestStubs.LoginToFxA);
       sinon.assert.calledWithExactly(requestStubs.LoginToFxA, true);
@@ -1451,13 +1660,13 @@ describe("loop.panel", function() {
     it("should logout when use as guest is clicked", function() {
       view = mountTestComponent();
 
-      TestUtils.Simulate.click(view.getDOMNode().querySelector("a"));
+      TestUtils.Simulate.click(ReactDOM.findDOMNode(view).querySelector("a"));
 
       sinon.assert.calledOnce(requestStubs.LogoutFromFxA);
     });
   });
 
-  describe("ConversationDropdown", function() {
+  describe("loop.panel.ConversationDropdown", function() {
     var view;
 
     function createTestComponent() {
@@ -1477,34 +1686,34 @@ describe("loop.panel", function() {
 
     it("should trigger handleCopyButtonClick when copy button is clicked",
        function() {
-         TestUtils.Simulate.click(view.refs.copyButton.getDOMNode());
+         TestUtils.Simulate.click(ReactDOM.findDOMNode(view.refs.copyButton));
 
          sinon.assert.calledOnce(view.props.handleCopyButtonClick);
        });
 
     it("should trigger handleEmailButtonClick when email button is clicked",
        function() {
-         TestUtils.Simulate.click(view.refs.emailButton.getDOMNode());
+         TestUtils.Simulate.click(ReactDOM.findDOMNode(view.refs.emailButton));
 
          sinon.assert.calledOnce(view.props.handleEmailButtonClick);
        });
 
     it("should trigger handleDeleteButtonClick when delete button is clicked",
        function() {
-         TestUtils.Simulate.click(view.refs.deleteButton.getDOMNode());
+         TestUtils.Simulate.click(ReactDOM.findDOMNode(view.refs.deleteButton));
 
          sinon.assert.calledOnce(view.props.handleDeleteButtonClick);
        });
 
     it("should trigger handleEditButtonClick when edit button is clicked",
        function() {
-         TestUtils.Simulate.click(view.refs.editButton.getDOMNode());
+         TestUtils.Simulate.click(ReactDOM.findDOMNode(view.refs.editButton));
 
          sinon.assert.calledOnce(view.props.handleEditButtonClick);
        });
   });
 
-  describe("RoomEntryContextButtons", function() {
+  describe("loop.panel.RoomEntryContextButtons", function() {
     var view, dispatcher;
 
     function createTestComponent(extraProps) {
@@ -1576,7 +1785,7 @@ describe("loop.panel", function() {
     });
   });
 
-  describe("SharePanelView", function() {
+  describe("loop.panel.SharePanelView", function() {
     var view, dispatcher, roomStore;
 
     function createTestComponent(extraProps) {
@@ -1612,7 +1821,7 @@ describe("loop.panel", function() {
     });
 
     it("should not open the panel if there is no room pending of creation", function() {
-      expect(view.getDOMNode()).eql(null);
+      expect(ReactDOM.findDOMNode(view)).eql(null);
     });
 
     it("should open the panel after room creation", function() {
@@ -1627,7 +1836,7 @@ describe("loop.panel", function() {
         pendingCreation: false
       });
 
-      var panel = view.getDOMNode();
+      var panel = ReactDOM.findDOMNode(view);
       clock.tick(loop.panel.SharePanelView.SHOW_PANEL_DELAY);
 
       expect(view.state.showPanel).eql(true);
@@ -1639,8 +1848,8 @@ describe("loop.panel", function() {
         showPanel: true
       });
 
-      var overlay = view.getDOMNode().querySelector(".share-panel-overlay");
-      var panel = view.getDOMNode();
+      var overlay = ReactDOM.findDOMNode(view).querySelector(".share-panel-overlay");
+      var panel = ReactDOM.findDOMNode(view);
 
       TestUtils.Simulate.click(overlay);
 
@@ -1653,7 +1862,7 @@ describe("loop.panel", function() {
         showPanel: true
       });
 
-      var panel = view.getDOMNode();
+      var panel = ReactDOM.findDOMNode(view);
 
       view._onDocumentVisibilityChanged({
         target: {
@@ -1721,6 +1930,162 @@ describe("loop.panel", function() {
       });
 
       sinon.assert.calledOnce(view.props.onSharePanelDisplayChange);
+    });
+  });
+
+  describe("loop.panel.RenameRoomView", function() {
+    var dispatcher,
+        view;
+
+    function mountTestComponent(name, token) {
+      return TestUtils.renderIntoDocument(
+        React.createElement(
+          loop.panel.RenameRoomView, {
+            dispatcher: dispatcher,
+            roomName: name,
+            roomToken: token
+          }
+        )
+      );
+    }
+
+    beforeEach(function() {
+      dispatcher = new loop.Dispatcher();
+      sandbox.stub(dispatcher, "dispatch");
+    });
+
+    it("should highlight container and select text when input gets the focus",
+      function() {
+      view = mountTestComponent("fakeName", "fakeToken");
+      var input = ReactDOM.findDOMNode(view).querySelector("input");
+      sandbox.stub(input, "select");
+
+      TestUtils.Simulate.focus(input);
+
+      expect(view.state.focused).eql(true);
+      sinon.assert.notCalled(dispatcher.dispatch);
+      sinon.assert.called(input.select);
+    });
+
+    it("should stop highlighting container when input lose focus", function() {
+      view = mountTestComponent("fakeName", "fakeToken");
+      var input = ReactDOM.findDOMNode(view).querySelector("input");
+
+      TestUtils.Simulate.focus(input);
+      TestUtils.Simulate.blur(input);
+
+      expect(view.state.focused).eql(false);
+      sinon.assert.notCalled(dispatcher.dispatch);
+    });
+
+    it("should update the room name when OK button is pressed", function() {
+      view = mountTestComponent("fakeName", "fakeToken");
+      var input = ReactDOM.findDOMNode(view).querySelector("input");
+      var button = ReactDOM.findDOMNode(view).querySelector(".rename-button");
+
+      input.value = "notTheFakeName";
+      TestUtils.Simulate.change(input);
+      TestUtils.Simulate.click(button);
+
+      sinon.assert.called(dispatcher.dispatch);
+      sinon.assert.calledWithExactly(dispatcher.dispatch,
+        new sharedActions.UpdateRoomContext({
+          roomToken: "fakeToken",
+          newRoomName: "notTheFakeName"
+        })
+      );
+    });
+
+    it("should NOT update the room name when name is unchanged" +
+       " and OK button is pressed", function() {
+      view = mountTestComponent("fakeName", "fakeToken");
+      var input = ReactDOM.findDOMNode(view).querySelector("input");
+      var button = ReactDOM.findDOMNode(view).querySelector(".rename-button");
+
+      input.value = "fakeName";
+      TestUtils.Simulate.change(input);
+      TestUtils.Simulate.click(button);
+
+      sinon.assert.notCalled(dispatcher.dispatch);
+    });
+
+    it("should update the room name when Enter key is pressed", function() {
+      view = mountTestComponent("fakeName", "fakeToken");
+      var input = ReactDOM.findDOMNode(view).querySelector("input");
+
+      input.value = "notTheFakeName";
+      TestUtils.Simulate.change(input);
+      TestUtils.Simulate.keyDown(input, {
+        key: "Enter",
+        which: 13
+      });
+
+      sinon.assert.called(dispatcher.dispatch);
+      sinon.assert.calledWithExactly(dispatcher.dispatch, new sharedActions.UpdateRoomContext({
+        roomToken: "fakeToken",
+        newRoomName: "notTheFakeName"
+      }));
+    });
+
+    it("should NOT update the room name when name is unchanged" +
+       " and Enter key is pressed", function() {
+      view = mountTestComponent("fakeName", "fakeToken");
+      var input = ReactDOM.findDOMNode(view).querySelector("input");
+
+      input.value = "fakeName";
+      TestUtils.Simulate.change(input);
+      TestUtils.Simulate.keyDown(input, {
+        key: "Enter",
+        which: 13
+      });
+
+      sinon.assert.notCalled(dispatcher.dispatch);
+    });
+  });
+
+  describe("NotificationListView", function() {
+    var coll, view, testNotif;
+
+    function mountTestComponent(props) {
+      props = _.extend({
+        key: 0
+      }, props || {});
+      return TestUtils.renderIntoDocument(
+        React.createElement(loop.panel.NotificationListView, props));
+    }
+
+    beforeEach(function() {
+      coll = new sharedModels.NotificationCollection();
+      view = mountTestComponent({ notifications: coll });
+      testNotif = { level: "warning", message: "foo" };
+      sinon.spy(view, "render");
+    });
+
+    afterEach(function() {
+      view.render.restore();
+    });
+
+    describe("Collection events", function() {
+      it("should render when a notification is added to the collection",
+        function() {
+          coll.add(testNotif);
+
+          sinon.assert.calledOnce(view.render);
+        });
+
+      it("should render when a notification is removed from the collection",
+        function() {
+          coll.add(testNotif);
+          coll.remove(testNotif);
+
+          sinon.assert.calledOnce(view.render);
+        });
+
+      it("should render when the collection is reset", function() {
+        coll.reset();
+
+        sinon.assert.calledOnce(view.render);
+      });
     });
   });
 });
